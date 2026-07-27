@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import sys
 import urllib.parse
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -99,6 +101,41 @@ def discover_filters(items: list[dict[str, Any]]) -> tuple[list[str], list[str]]
     return residences, labels
 
 
+PENDING_SEARCHES_PATH = Path("pending_searches.json")
+
+
+def load_pending_searches(path: Path = PENDING_SEARCHES_PATH) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_pending_searches(pending: dict[str, Any], path: Path = PENDING_SEARCHES_PATH) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(pending, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def build_confirmation_url(token: str) -> str:
+    repo = os.environ.get("GITHUB_REPOSITORY", "OWNER/REPO")
+    return (
+        f"https://github.com/{repo}/issues/new"
+        f"?template=confirm-email.yml&code={urllib.parse.quote(token)}"
+    )
+
+
+def build_confirmation_email_body(search_name: str, confirmation_url: str) -> str:
+    return (
+        "Quelqu'un a demande a recevoir des alertes de logement CROUS a cette adresse "
+        f"email, pour la recherche {search_name!r}.\n\n"
+        "Si c'est bien toi, confirme en cliquant sur ce lien (necessite un compte "
+        f"GitHub, gratuit) :\n{confirmation_url}\n\n"
+        "Si tu n'es pas a l'origine de cette demande, ignore simplement cet email -- "
+        "rien ne sera active sans ta confirmation."
+    )
+
+
 def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
@@ -127,8 +164,12 @@ def main() -> int:
     else:
         searches = []
 
-    if any(s["name"].strip().lower() == name.strip().lower() for s in searches):
-        print(f"ERROR: une recherche nommee {name!r} existe deja dans searches.json")
+    pending = load_pending_searches()
+    existing_names = {s["name"].strip().lower() for s in searches} | {
+        n.strip().lower() for n in pending
+    }
+    if name.strip().lower() in existing_names:
+        print(f"ERROR: une recherche nommee {name!r} existe deja")
         return 1
 
     try:
@@ -163,13 +204,8 @@ def main() -> int:
     entry: dict[str, Any] = {"name": name, "url": url}
     if keywords:
         entry["keywords"] = keywords
-    if emails:
-        entry["emails"] = emails
 
-    searches.append(entry)
-    clog.save_searches(searches)
-
-    lines = [f"OK: recherche {name!r} ajoutee pour {city!r}.", f"URL : {url}"]
+    lines = [f"URL : {url}"]
     if keywords:
         lines.append(f"Mots-cles : {', '.join(keywords)}")
     if warnings:
@@ -189,9 +225,39 @@ def main() -> int:
             "Aucun logement disponible actuellement dans cette zone : impossible de "
             "suggerer une liste de residences/types pour l'instant."
         )
-    lines.append(
-        f"Destinataires : {', '.join(emails)}" if emails else "Destinataire : email par defaut (ALERT_EMAIL)"
-    )
+
+    if emails:
+        smtp_user = clog._require_env("GMAIL_ADDRESS")
+        smtp_password = clog._require_env("GMAIL_APP_PASSWORD")
+        pending_emails: dict[str, str] = {}
+        for email in emails:
+            token = secrets.token_urlsafe(16)
+            pending_emails[token] = email
+            confirmation_url = build_confirmation_url(token)
+            confirmation_body = build_confirmation_email_body(name, confirmation_url)
+            clog.send_email(
+                subject=f"Confirme ton adresse pour la recherche {name!r}",
+                body=confirmation_body,
+                to_addrs=[email],
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+            )
+        pending[name] = {"search": entry, "pending_emails": pending_emails}
+        save_pending_searches(pending)
+        lines.insert(
+            0,
+            f"OK: recherche {name!r} creee EN ATTENTE de confirmation email pour {city!r}.",
+        )
+        lines.append(
+            f"Email(s) en attente de confirmation : {', '.join(emails)}. Un email de "
+            "confirmation a ete envoye a chaque adresse. La recherche ne sera active "
+            "qu'une fois qu'au moins un email aura confirme."
+        )
+    else:
+        searches.append(entry)
+        clog.save_searches(searches)
+        lines.insert(0, f"OK: recherche {name!r} ajoutee pour {city!r}.")
+        lines.append("Destinataire : email par defaut (ALERT_EMAIL)")
 
     print("\n".join(lines))
     return 0

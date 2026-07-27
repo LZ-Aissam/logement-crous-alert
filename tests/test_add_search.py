@@ -313,3 +313,110 @@ def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
 
     loaded = clog.load_searches()
     assert loaded == [{"name": "Agen", "url": loaded[0]["url"]}]
+
+
+def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\na@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    sent = []
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(
+            (subject, to_addrs, body)
+        ),
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert json.loads((tmp_path / "searches.json").read_text(encoding="utf-8")) == []
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" in pending
+    assert list(pending["Agen"]["pending_emails"].values()) == ["a@example.com"]
+    assert len(sent) == 1
+    assert sent[0][1] == ["a@example.com"]
+    assert "issues/new?template=confirm-email.yml&code=" in sent[0][2]
+    assert "LZ-Aissam/logement-crous-alert" in sent[0][2]
+
+
+def test_main_rejects_duplicate_name_already_pending(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Brest": {
+                    "search": {"name": "Brest", "url": "https://example.com"},
+                    "pending_emails": {},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nbrest\n\n"
+        "### Ville\n\nBrest\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+
+
+def test_main_requires_gmail_env_when_email_submitted(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.delenv("GMAIL_ADDRESS", raising=False)
+    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\na@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    with pytest.raises(SystemExit):
+        mod.main()
+
+
+def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert len(searches) == 1
+    assert not (tmp_path / "pending_searches.json").exists()
