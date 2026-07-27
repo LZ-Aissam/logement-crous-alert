@@ -33,6 +33,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          CONFIRMATION_BASE_URL: ${{ secrets.CONFIRMATION_BASE_URL }}
         run: |
           if python add_search.py > result.txt 2>&1; then
             echo "success=true" >> "$GITHUB_OUTPUT"
