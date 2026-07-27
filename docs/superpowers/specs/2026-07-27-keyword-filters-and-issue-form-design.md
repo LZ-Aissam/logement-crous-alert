@@ -129,6 +129,95 @@ Fonctions principales :
 - Pas de traitement automatique des commentaires de suivi sur une issue existante —
   chaque tentative d'ajout est une nouvelle issue.
 
+## 3. Confirmation d'email par formulaire (protection anti-abus)
+
+### Contexte du changement
+
+Le but explicite de l'utilisateur est que **n'importe qui** puisse utiliser le
+formulaire pour créer sa propre recherche, reçue sur **sa propre adresse email** — ce
+n'est pas un outil réservé au propriétaire du dépôt. Une revue finale du code a
+correctement signalé que, sans garde-fou, rien n'empêche une personne A de soumettre le
+formulaire en indiquant l'adresse email d'une personne B (qui n'a rien demandé) : le
+robot enverrait alors des emails automatiques répétés depuis le compte Gmail du
+propriétaire vers un tiers non consentant — un risque réel d'abus/spam avec l'identité
+du propriétaire.
+
+Décision utilisateur : chaque adresse email doit être **confirmée** (preuve que son
+propriétaire consent) avant de recevoir la moindre alerte. Comme le dépôt n'a aucun
+serveur (seulement GitHub Pages/Actions, gratuits), la confirmation ne peut pas être un
+simple lien cliquable classique. Mécanisme retenu, cohérent avec l'architecture
+existante (tout sur GitHub, gratuit) : un **second formulaire GitHub** ("Confirmer mon
+email"), pré-rempli via un lien dans l'email de confirmation avec un code unique. La
+personne à confirmer doit avoir (ou créer) un compte GitHub pour soumettre ce
+formulaire — limite acceptée explicitement par l'utilisateur.
+
+Décision utilisateur sur l'activation : tant qu'**aucun** email soumis pour une
+recherche n'est confirmé, cette recherche reste **en attente** (aucune alerte envoyée,
+même pas à un email par défaut). Dès qu'**un** des emails soumis se confirme, la
+recherche devient active avec cet email comme destinataire ; si d'autres emails de la
+même recherche se confirment plus tard, ils s'ajoutent à la liste des destinataires
+actifs.
+
+Ce mécanisme concerne uniquement le flux du formulaire public. Si l'utilisateur
+(propriétaire du dépôt) édite `searches.json` à la main (comme fait précédemment pour
+la recherche "Brest"), aucune confirmation n'est requise — il a un accès direct et de
+confiance au fichier. De même, une recherche sans champ `emails` (utilisant
+`ALERT_EMAIL` par défaut, le secret du propriétaire) n'a besoin d'aucune confirmation :
+le propriétaire se fait confiance à lui-même.
+
+### Nouveaux fichiers de données
+
+- **`pending_searches.json`** : dict `{nom_recherche: {"search": {...entrée searches.json
+  sans "emails"...}, "pending_emails": {"<token>": "<email>", ...}}}`. Contient les
+  recherches créées via le formulaire mais dont aucun email n'est encore confirmé (ou
+  dont certains emails restent à confirmer même après activation partielle).
+
+### Modifications à `add_search.py`
+
+- Génère un token aléatoire et sûr (`secrets.token_urlsafe`) par email soumis.
+- Ne construit **pas** immédiatement l'entrée finale dans `searches.json` si des emails
+  ont été soumis : place la recherche dans `pending_searches.json` avec un token par
+  email, envoie un email de confirmation à chaque adresse (réutilise
+  `check_logement.send_email`) contenant un lien vers le second formulaire pré-rempli
+  avec le token (`https://github.com/<owner>/<repo>/issues/new?template=confirm-email.yml&code=<token>`,
+  construit à partir de la variable d'environnement `GITHUB_REPOSITORY` fournie
+  automatiquement par GitHub Actions).
+- Si aucun email n'est soumis (champ laissé vide) : comportement inchangé — recherche
+  créée immédiatement, active, avec `ALERT_EMAIL` par défaut (aucune confirmation
+  nécessaire).
+- La vérification du nom déjà pris doit aussi regarder dans `pending_searches.json`, pas
+  seulement dans `searches.json`.
+- Le message de résultat posté sur l'issue explique clairement : la recherche est en
+  attente, un email de confirmation a été envoyé à chaque adresse, rien ne sera activé
+  sans confirmation.
+
+### Nouveau script `confirm_email.py`
+
+- `main()` : lit le code soumis via le second formulaire (variable d'env `ISSUE_BODY`,
+  même mécanisme de parsing que pour `add_search.py`). Cherche ce token dans
+  `pending_searches.json`. Si trouvé : retire le token de `pending_emails` de
+  l'entrée correspondante ; si la recherche n'existe pas encore dans `searches.json`,
+  l'y ajoute avec `emails: [cet_email]` (première confirmation → activation) ; si elle y
+  existe déjà, ajoute cet email à sa liste `emails` existante (confirmations
+  suivantes) ; si `pending_emails` de l'entrée est maintenant vide, retire l'entrée de
+  `pending_searches.json`. Si le token n'existe nulle part : message d'erreur clair,
+  code de sortie 1, aucun fichier modifié.
+
+### Nouveau formulaire et workflow
+
+- `.github/ISSUE_TEMPLATE/confirm-email.yml` : un seul champ requis, "Code de
+  confirmation" (`id: code`), label `confirm-email`.
+- `.github/workflows/confirm-email.yml` : même structure que `add-search.yml` (checkout,
+  setup Python, exécute `confirm_email.py`, commit/push si succès, commente et ferme ou
+  laisse ouvert selon le résultat), déclenché sur `issues: opened` avec le label
+  `confirm-email`.
+
+### Limite assumée
+
+Pas d'expiration des tokens de confirmation (peut rester en attente indéfiniment) —
+acceptable vu l'échelle du projet ; nettoyage manuel possible en éditant
+`pending_searches.json` si besoin.
+
 ## Tests
 
 - Tests unitaires pour `_item_matches_keywords` (absence de mots-clés → tout passe ;
@@ -142,3 +231,13 @@ Fonctions principales :
 - Test d'intégration pour `add_search.py` `main()` : succès (ajoute l'entrée, message de
   succès, code 0), nom déjà pris (fichier inchangé, code 1), ville introuvable (fichier
   inchangé, code 1).
+- Test d'intégration pour `add_search.py` avec emails soumis : la recherche part dans
+  `pending_searches.json` (pas dans `searches.json`), un email de confirmation est
+  envoyé par adresse, un token distinct par email. Recherche sans email soumis :
+  comportement inchangé (activation immédiate, pas de fichier pending touché).
+  Nom déjà pris dans `pending_searches.json` (pas seulement `searches.json`) → rejeté.
+- Tests pour `confirm_email.py` : token valide → première confirmation (recherche
+  déplacée vers `searches.json` avec le bon email), confirmation suivante pour la même
+  recherche (email ajouté à la liste existante, pas de doublon de recherche), dernier
+  email confirmé retire l'entrée de `pending_searches.json`, token invalide/inconnu →
+  erreur claire, code 1, aucun fichier modifié.

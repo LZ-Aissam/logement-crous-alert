@@ -16,6 +16,10 @@
 - Residence/room-type discovery is **best-effort only**: a submitted keyword that doesn't match anything currently discovered produces a **warning in the confirmation message**, never a rejection — the search is still created. Only two things cause an outright rejection (issue stays open, `searches.json` untouched): a duplicate search name (case-insensitive match against existing entries), or a geocoding failure (city not found / network error).
 - New searches use a fixed-size zone: `DEFAULT_HALF_LAT_SPAN = 0.0511`, `DEFAULT_HALF_LON_SPAN = 0.0705` (degrees), matching the size originally used for the Brest search. Tool id is always `47`.
 - The new workflow (`add-search.yml`) needs `permissions: contents: write` and `issues: write`, triggers only on `issues: opened` where the label `new-search` is present, and must never crash silently — both stdout and stderr from `add_search.py` are captured into the issue comment so a bug still produces a diagnosable message.
+- **The Issue Form is intentionally open to any GitHub user** (the goal is that other people can create their own searches, delivered to their own email) — but a submitted `emails` address must never receive alerts without proving its owner consents. Any email address that hasn't already been confirmed goes through a confirmation step (a second Issue Form, `confirm-email.yml`) before it can ever appear as a recipient in `searches.json`. A search with unconfirmed emails only is created in `pending_searches.json`, not `searches.json`, and sends zero alerts until at least one of its emails confirms. A search submitted with no `emails` field at all needs no confirmation (falls back to `ALERT_EMAIL`, the repo owner's own trusted address).
+- Submitted email addresses must pass a basic shape check (`EMAIL_RE`) before anything else happens with them — reject clearly, no file writes, if any is malformed.
+- The Issue-Form-facing field label constants (`FIELD_NAME`, `FIELD_CITY`, `FIELD_KEYWORDS`, `FIELD_EMAILS`) must be kept in sync with the actual YAML — enforced by a test that parses the real `.github/ISSUE_TEMPLATE/new-search.yml` file and compares.
+- Both `add-search.yml` and `confirm-email.yml` must always post an issue comment with the script's result (success or failure) — the comment step must not be skipped just because a later step (the git commit/push) fails; only the *close* step is conditioned on the commit/push having actually succeeded.
 - No placeholders anywhere in code — every function fully implemented.
 
 ---
@@ -823,21 +827,965 @@ git commit -m "docs: document keyword filters and the Issue Form search creation
 
 ---
 
-### Task 7: Manual end-to-end verification
+### Task 7: Local dry-run verification (completed)
+
+**Files:** none (verification only).
+
+- [x] **Step 1: Run the full test suite**
+
+Run: `python -m pytest -v` — 58 passed, output pristine (already done).
+
+- [x] **Step 2: Locally simulate an issue submission**
+
+Already done: a local dry run against the real `geocode_city`/CROUS site for "Rennes"
+succeeded and the entry was reverted afterward. `searches.json` is back to its original
+state (only the real "Brest" entry).
+
+**Steps 3-4 of the original Task 7 (push + real Issue Form submission) are superseded
+by Task 13 below** — a final whole-branch review found a critical security gap (the
+Issue Form has no submitter restriction, combined with an unverified `emails` field,
+which would let anyone make the bot send repeated mail from the owner's Gmail account to
+a third party who never consented) plus several important robustness gaps. Tasks 8-12
+fix these and add mandatory email confirmation before any submitted address can receive
+alerts. Task 13 is the real final end-to-end verification, covering both the "new
+search" and "confirm email" flows together.
+
+---
+
+### Task 8: Security/robustness fixes (email format validation, label-constant test, workflow hardening, README disclosure)
+
+**Files:**
+- Modify: `add_search.py`
+- Modify: `tests/test_add_search.py`
+- Modify: `.github/workflows/add-search.yml`
+- Modify: `README.md`
+- Modify: `requirements-dev.txt`
+
+**Interfaces:**
+- Produces: module constants `FIELD_NAME = "Nom de la recherche"`, `FIELD_CITY = "Ville"`, `FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel"`, `FIELD_EMAILS = "Email(s) de notification - optionnel"` in `add_search.py`, and `EMAIL_RE` (a compiled regex for basic email-shape validation).
+- Modifies: `main()` — uses the new `FIELD_*` constants instead of inline string literals, and validates each submitted email against `EMAIL_RE` right after parsing, rejecting (no file writes, exit 1) if any is malformed.
+
+- [ ] **Step 1: Write the failing tests**
+
+Add `pyyaml` to `requirements-dev.txt` (append a new line, keep the existing `-r requirements.txt` and `pytest` lines):
+```
+-r requirements.txt
+pytest
+pyyaml
+```
+
+Append to `tests/test_add_search.py`:
+
+```python
+import yaml
+
+
+def test_field_label_constants_match_issue_form_yaml():
+    with open(".github/ISSUE_TEMPLATE/new-search.yml", encoding="utf-8") as f:
+        form = yaml.safe_load(f)
+    labels_by_id = {
+        field["id"]: field["attributes"]["label"] for field in form["body"]
+    }
+    assert labels_by_id["name"] == mod.FIELD_NAME
+    assert labels_by_id["city"] == mod.FIELD_CITY
+    assert labels_by_id["keywords"] == mod.FIELD_KEYWORDS
+    assert labels_by_id["emails"] == mod.FIELD_EMAILS
+
+
+def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\npas-un-email\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert json.loads((tmp_path / "searches.json").read_text(encoding="utf-8")) == []
+
+
+def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    assert mod.main() == 0
+
+    loaded = clog.load_searches()
+    assert loaded == [{"name": "Agen", "url": loaded[0]["url"]}]
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `pip install -r requirements-dev.txt && python -m pytest tests/test_add_search.py -v`
+Expected: FAIL — `AttributeError: module 'add_search' has no attribute 'FIELD_NAME'` (and the email-validation test fails since nothing rejects `pas-un-email` yet).
+
+- [ ] **Step 3: Add the constants and email validation to `add_search.py`**
+
+Near the top of `add_search.py`, after the existing module constants (`GEOCODE_URL`, etc.), add:
+
+```python
+FIELD_NAME = "Nom de la recherche"
+FIELD_CITY = "Ville"
+FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel"
+FIELD_EMAILS = "Email(s) de notification - optionnel"
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+```
+
+In `main()`, change the field lookups from inline literals to the constants:
+```python
+    name = fields.get(FIELD_NAME)
+    city = fields.get(FIELD_CITY)
+    keywords_raw = fields.get(FIELD_KEYWORDS)
+    emails_raw = fields.get(FIELD_EMAILS)
+```
+
+Right after `emails = _split_csv(emails_raw)` (wherever that line currently is in
+`main()`), add:
+```python
+    invalid_emails = [e for e in emails if not EMAIL_RE.match(e)]
+    if invalid_emails:
+        print(f"ERROR: adresse(s) email invalide(s) : {', '.join(invalid_emails)}")
+        return 1
+```
+
+- [ ] **Step 4: Harden `.github/workflows/add-search.yml`**
+
+Replace its full content with:
+
+```yaml
+name: Add search from issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: add-search
+  cancel-in-progress: false
+
+jobs:
+  add-search:
+    if: contains(github.event.issue.labels.*.name, 'new-search')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Process new search request
+        id: process
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          if python add_search.py > result.txt 2>&1; then
+            echo "success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "success=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat result.txt
+
+      - name: Comment with result
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body-file result.txt
+
+      - name: Commit and push data files
+        id: persist
+        if: steps.process.outputs.success == 'true'
+        run: |
+          git config user.name "logement-alert-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add searches.json pending_searches.json
+          if git diff --staged --quiet; then
+            echo "persisted=true" >> "$GITHUB_OUTPUT"
+          else
+            if git commit -m "chore: add search from issue #${{ github.event.issue.number }}" \
+                && git pull --rebase --autostash \
+                && git push; then
+              echo "persisted=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "persisted=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Close issue on full success
+        if: steps.process.outputs.success == 'true' && steps.persist.outputs.persisted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }}
+
+      - name: Warn if persistence failed
+        if: steps.process.outputs.success == 'true' && steps.persist.outputs.persisted == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "Erreur technique lors de l'enregistrement (collision Git). Le workflow va probablement reussir si tu resoumets une nouvelle issue dans quelques minutes."
+```
+
+(Note: `pending_searches.json` doesn't exist as a concept yet in this task — `git add
+searches.json pending_searches.json` is safe even though the second file doesn't exist
+yet, since `git add` on a path that doesn't currently exist but was previously tracked,
+or genuinely never existed, is a no-op for that path as long as at least one path in the
+command matches something — but to keep this task's diff self-contained and not
+forward-reference Task 9's file, only add `searches.json` in this step; Task 9 will
+update this line to `git add searches.json pending_searches.json` when it introduces
+that file.)
+
+- [ ] **Step 5: Add the README zone-size disclosure**
+
+In the Issue Form section of `README.md`, add a sentence noting: the search zone
+created via the form is a **fixed size** (roughly 11 km × 10 km) centered on the city.
+For a very large city (Paris, Lyon, Marseille...), this may not cover the whole
+metropolitan area — the URL's `bounds` can be widened by hand in `searches.json`
+afterward if needed.
+
+- [ ] **Step 6: Run tests to verify they pass**
+
+Run: `python -m pytest -v`
+Expected: 61 passed (58 pre-existing + 3 new), output pristine.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add add_search.py tests/test_add_search.py .github/workflows/add-search.yml README.md requirements-dev.txt
+git commit -m "fix: validate emails, lock field-label contract, harden workflow persistence"
+```
+
+---
+
+### Task 9: `pending_searches.json` + email confirmation in `add_search.py`
+
+**Files:**
+- Modify: `add_search.py`
+- Modify: `tests/test_add_search.py`
+
+**Interfaces:**
+- Consumes: `check_logement.send_email`, `check_logement._require_env` (both existing).
+- Produces: `PENDING_SEARCHES_PATH = Path("pending_searches.json")`, `load_pending_searches(path=PENDING_SEARCHES_PATH) -> dict[str, Any]`, `save_pending_searches(pending, path=PENDING_SEARCHES_PATH) -> None`, `build_confirmation_url(token: str) -> str`, `build_confirmation_email_body(search_name: str, confirmation_url: str) -> str`.
+- Modifies: `main()` — when `emails` is non-empty, the search is no longer added directly to `searches.json`; instead each email gets a random token, a confirmation email is sent to it, and the search + pending tokens are written to `pending_searches.json`. When `emails` is empty, behavior is unchanged (immediate activation, `ALERT_EMAIL` fallback).
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `tests/test_add_search.py` (add `import secrets` is NOT needed in the test
+file — only production code needs it):
+
+```python
+def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\na@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    sent = []
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(
+            (subject, to_addrs, body)
+        ),
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert json.loads((tmp_path / "searches.json").read_text(encoding="utf-8")) == []
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" in pending
+    assert list(pending["Agen"]["pending_emails"].values()) == ["a@example.com"]
+    assert len(sent) == 1
+    assert sent[0][1] == ["a@example.com"]
+    assert "issues/new?template=confirm-email.yml&code=" in sent[0][2]
+    assert "LZ-Aissam/logement-crous-alert" in sent[0][2]
+
+
+def test_main_rejects_duplicate_name_already_pending(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Brest": {
+                    "search": {"name": "Brest", "url": "https://example.com"},
+                    "pending_emails": {},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nbrest\n\n"
+        "### Ville\n\nBrest\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+
+
+def test_main_requires_gmail_env_when_email_submitted(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.delenv("GMAIL_ADDRESS", raising=False)
+    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\na@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    with pytest.raises(SystemExit):
+        mod.main()
+
+
+def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert len(searches) == 1
+    assert not (tmp_path / "pending_searches.json").exists()
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_add_search.py -v`
+Expected: FAIL — `AttributeError: module 'add_search' has no attribute 'PENDING_SEARCHES_PATH'` (or similar, for the pending-related tests); `test_main_still_activates_immediately_without_emails` may already pass since it matches current behavior — that's fine, TDD is about the *new* behavior.
+
+- [ ] **Step 3: Implement the pending-confirmation flow**
+
+Add near the top of `add_search.py`, alongside the other module constants:
+
+```python
+import secrets as secrets_module
+```
+
+(Use `secrets_module` as the import alias to avoid any confusion with a local variable
+named `secrets` if one exists in `main()` — check the current code first; if there is no
+naming conflict, a plain `import secrets` is fine and preferred. Use whichever is
+clean given the actual current file content.)
+
+Add after `discover_filters`:
+
+```python
+PENDING_SEARCHES_PATH = Path("pending_searches.json")
+
+
+def load_pending_searches(path: Path = PENDING_SEARCHES_PATH) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_pending_searches(pending: dict[str, Any], path: Path = PENDING_SEARCHES_PATH) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(pending, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def build_confirmation_url(token: str) -> str:
+    repo = os.environ.get("GITHUB_REPOSITORY", "OWNER/REPO")
+    return (
+        f"https://github.com/{repo}/issues/new"
+        f"?template=confirm-email.yml&code={urllib.parse.quote(token)}"
+    )
+
+
+def build_confirmation_email_body(search_name: str, confirmation_url: str) -> str:
+    return (
+        "Quelqu'un a demande a recevoir des alertes de logement CROUS a cette adresse "
+        f"email, pour la recherche {search_name!r}.\n\n"
+        "Si c'est bien toi, confirme en cliquant sur ce lien (necessite un compte "
+        f"GitHub, gratuit) :\n{confirmation_url}\n\n"
+        "Si tu n'es pas a l'origine de cette demande, ignore simplement cet email -- "
+        "rien ne sera active sans ta confirmation."
+    )
+```
+
+Now restructure `main()`. Read the current implementation first (from Task 8) to see
+its exact current shape, then apply these changes precisely:
+
+1. The duplicate-name check must also look in pending searches:
+```python
+    pending = load_pending_searches()
+    existing_names = {s["name"].strip().lower() for s in searches} | {
+        n.strip().lower() for n in pending
+    }
+    if name.strip().lower() in existing_names:
+        print(f"ERROR: une recherche nommee {name!r} existe deja")
+        return 1
+```
+   (Replace the current single-source duplicate check with this two-source version —
+   keep it positioned exactly where the current duplicate check is, i.e. after loading
+   `searches` and before `geocode_city`.)
+
+2. Replace the final "build entry, append, save" block with a branch on whether `emails`
+   is empty:
+
+```python
+    entry: dict[str, Any] = {"name": name, "url": url}
+    if keywords:
+        entry["keywords"] = keywords
+
+    lines = [f"URL : {url}"]
+    if keywords:
+        lines.append(f"Mots-cles : {', '.join(keywords)}")
+    if warnings:
+        lines.append(
+            "AVERTISSEMENT: ces mots-cles ne correspondent a rien de disponible "
+            f"actuellement (peut etre normal si rien n'est libre en ce moment) : "
+            f"{', '.join(warnings)}"
+        )
+    if residences or labels:
+        lines.append(
+            "Residences/types actuellement disponibles dans cette zone (pour verifier "
+            f"l'orthographe) : residences={residences or '(aucune)'}, "
+            f"types={labels or '(aucun)'}"
+        )
+    else:
+        lines.append(
+            "Aucun logement disponible actuellement dans cette zone : impossible de "
+            "suggerer une liste de residences/types pour l'instant."
+        )
+
+    if emails:
+        smtp_user = clog._require_env("GMAIL_ADDRESS")
+        smtp_password = clog._require_env("GMAIL_APP_PASSWORD")
+        pending_emails: dict[str, str] = {}
+        for email in emails:
+            token = secrets.token_urlsafe(16)
+            pending_emails[token] = email
+            confirmation_url = build_confirmation_url(token)
+            confirmation_body = build_confirmation_email_body(name, confirmation_url)
+            clog.send_email(
+                subject=f"Confirme ton adresse pour la recherche {name!r}",
+                body=confirmation_body,
+                to_addrs=[email],
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+            )
+        pending[name] = {"search": entry, "pending_emails": pending_emails}
+        save_pending_searches(pending)
+        lines.insert(
+            0,
+            f"OK: recherche {name!r} creee EN ATTENTE de confirmation email pour {city!r}.",
+        )
+        lines.append(
+            f"Email(s) en attente de confirmation : {', '.join(emails)}. Un email de "
+            "confirmation a ete envoye a chaque adresse. La recherche ne sera active "
+            "qu'une fois qu'au moins un email aura confirme."
+        )
+    else:
+        searches.append(entry)
+        clog.save_searches(searches)
+        lines.insert(0, f"OK: recherche {name!r} ajoutee pour {city!r}.")
+        lines.append("Destinataire : email par defaut (ALERT_EMAIL)")
+
+    print("\n".join(lines))
+    return 0
+```
+
+   Remove whatever old code block this replaces (the version from Task 4/8 that always
+   called `searches.append(entry)` / `clog.save_searches(searches)` unconditionally, and
+   always appended a `Destinataires : ...` / `Destinataire : email par defaut` line at
+   the end regardless of the emails branch). Use `import secrets` (plain, no alias)
+   unless you find an actual naming collision in the current file — check first.
+
+3. Update `.github/workflows/add-search.yml`'s "Commit and push data files" step (added
+   in Task 8) to also stage the new file:
+```yaml
+          git add searches.json pending_searches.json
+```
+   (This is the one line that Task 8 deliberately left as `git add searches.json` only,
+   forward-referencing this task.)
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest -v`
+Expected: 65 passed (61 pre-existing + 4 new), output pristine.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add add_search.py tests/test_add_search.py .github/workflows/add-search.yml
+git commit -m "feat: require email confirmation before activating a submitted search"
+```
+
+---
+
+### Task 10: `confirm_email.py`
+
+**Files:**
+- Create: `confirm_email.py`
+- Create: `tests/test_confirm_email.py`
+
+**Interfaces:**
+- Consumes: `add_search.load_pending_searches`, `add_search.save_pending_searches`, `add_search.parse_issue_form_body`, `check_logement.load_searches`, `check_logement.save_searches`, `check_logement.SEARCHES_PATH` (all existing).
+- Produces: `main() -> int` reading `ISSUE_BODY` from the environment; CLI entry point via `if __name__ == "__main__"`.
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `tests/test_confirm_email.py`:
+
+```python
+import json
+
+import pytest
+
+import check_logement as clog
+import confirm_email as mod
+
+
+def test_main_confirms_first_email_and_activates_search(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen"},
+                    "pending_emails": {"tok123": "a@example.com"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok123\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert searches == [
+        {"name": "Agen", "url": "https://example.com/agen", "emails": ["a@example.com"]}
+    ]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" not in pending
+
+
+def test_main_confirms_second_email_appends_to_existing_search(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [{"name": "Agen", "url": "https://example.com/agen", "emails": ["a@example.com"]}]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen"},
+                    "pending_emails": {"tok456": "b@example.com"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok456\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert searches[0]["emails"] == ["a@example.com", "b@example.com"]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" not in pending
+
+
+def test_main_keeps_pending_entry_when_other_emails_remain(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen"},
+                    "pending_emails": {"tok1": "a@example.com", "tok2": "b@example.com"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok1\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert list(pending["Agen"]["pending_emails"].values()) == ["b@example.com"]
+
+
+def test_main_rejects_unknown_token(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pending_searches.json").write_text(json.dumps({}), encoding="utf-8")
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\nunknown-token\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+
+
+def test_main_requires_code(monkeypatch):
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\n_No response_\n")
+
+    assert mod.main() == 1
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_confirm_email.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'confirm_email'`.
+
+- [ ] **Step 3: Create `confirm_email.py`**
+
+```python
+"""Process a GitHub Issue Form submission confirming an email address for a pending search."""
+from __future__ import annotations
+
+import json
+import os
+import sys
+
+import check_logement as clog
+from add_search import (
+    load_pending_searches,
+    parse_issue_form_body,
+    save_pending_searches,
+)
+
+FIELD_CODE = "Code de confirmation"
+
+
+def main() -> int:
+    issue_body = os.environ.get("ISSUE_BODY", "")
+    fields = parse_issue_form_body(issue_body)
+    code = fields.get(FIELD_CODE)
+
+    if not code:
+        print("ERROR: code de confirmation manquant")
+        return 1
+
+    pending = load_pending_searches()
+
+    for search_name, record in pending.items():
+        pending_emails = record.get("pending_emails", {})
+        if code not in pending_emails:
+            continue
+
+        email = pending_emails.pop(code)
+
+        if clog.SEARCHES_PATH.exists():
+            try:
+                searches = clog.load_searches()
+            except (ValueError, json.JSONDecodeError, OSError) as exc:
+                print(f"ERROR: impossible de lire searches.json existant : {exc}")
+                return 1
+        else:
+            searches = []
+
+        existing = next(
+            (
+                s
+                for s in searches
+                if s["name"].strip().lower() == search_name.strip().lower()
+            ),
+            None,
+        )
+        if existing is not None:
+            emails_list = existing.setdefault("emails", [])
+            if email not in emails_list:
+                emails_list.append(email)
+        else:
+            entry = dict(record["search"])
+            entry["emails"] = [email]
+            searches.append(entry)
+
+        clog.save_searches(searches)
+
+        if pending_emails:
+            pending[search_name]["pending_emails"] = pending_emails
+        else:
+            del pending[search_name]
+        save_pending_searches(pending)
+
+        print(
+            f"OK: email {email!r} confirme pour la recherche {search_name!r}. "
+            "Cette recherche est maintenant active."
+        )
+        return 0
+
+    print("ERROR: code de confirmation invalide ou deja utilise")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_confirm_email.py -v`
+Expected: 6 passed.
+
+- [ ] **Step 5: Run the full project test suite**
+
+Run: `python -m pytest -v`
+Expected: 71 passed (65 pre-existing + 6 new), output pristine.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add confirm_email.py tests/test_confirm_email.py
+git commit -m "feat: add confirm_email script to activate pending searches"
+```
+
+---
+
+### Task 11: Confirmation Issue Form and workflow
+
+**Files:**
+- Create: `.github/ISSUE_TEMPLATE/confirm-email.yml`
+- Create: `.github/workflows/confirm-email.yml`
+
+**Interfaces:**
+- Consumes: `confirm_email.py`'s `main()` (Task 10) as the workflow's executable entry point, reading `ISSUE_BODY` from the environment and exiting 0/1.
+
+- [ ] **Step 1: Create the confirmation Issue Form**
+
+`.github/ISSUE_TEMPLATE/confirm-email.yml`:
+
+```yaml
+name: Confirmer mon email
+description: Confirme que tu acceptes de recevoir des alertes logement a cette adresse
+title: "[Confirmation email]"
+labels: ["confirm-email"]
+body:
+  - type: input
+    id: code
+    attributes:
+      label: Code de confirmation
+      description: Le code fourni dans l'email de confirmation que tu as recu
+    validations:
+      required: true
+```
+
+- [ ] **Step 2: Create the confirmation workflow**
+
+`.github/workflows/confirm-email.yml`:
+
+```yaml
+name: Confirm email for pending search
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: confirm-email
+  cancel-in-progress: false
+
+jobs:
+  confirm-email:
+    if: contains(github.event.issue.labels.*.name, 'confirm-email')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Process email confirmation
+        id: process
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          if python confirm_email.py > result.txt 2>&1; then
+            echo "success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "success=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat result.txt
+
+      - name: Comment with result
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body-file result.txt
+
+      - name: Commit and push data files
+        id: persist
+        if: steps.process.outputs.success == 'true'
+        run: |
+          git config user.name "logement-alert-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add searches.json pending_searches.json
+          if git diff --staged --quiet; then
+            echo "persisted=true" >> "$GITHUB_OUTPUT"
+          else
+            if git commit -m "chore: confirm email from issue #${{ github.event.issue.number }}" \
+                && git pull --rebase --autostash \
+                && git push; then
+              echo "persisted=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "persisted=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Close issue on full success
+        if: steps.process.outputs.success == 'true' && steps.persist.outputs.persisted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }}
+
+      - name: Warn if persistence failed
+        if: steps.process.outputs.success == 'true' && steps.persist.outputs.persisted == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "Erreur technique lors de l'enregistrement (collision Git). Le workflow va probablement reussir si tu resoumets une nouvelle issue dans quelques minutes."
+```
+
+- [ ] **Step 3: Run the full test suite once (sanity check, no code changed in this task)**
+
+Run: `python -m pytest -v`
+Expected: 71 passed (unchanged from Task 10 — this task added no Python code).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add .github/ISSUE_TEMPLATE/confirm-email.yml .github/workflows/confirm-email.yml
+git commit -m "feat: add confirmation Issue Form and workflow"
+```
+
+---
+
+### Task 12: README updates for email confirmation
+
+**Files:**
+- Modify: `README.md`
+
+**Interfaces:** none (documentation only).
+
+- [ ] **Step 1: Document the email confirmation requirement**
+
+Add a section (near the existing Issue Form documentation from Task 6) explaining:
+- If the "new search" form includes one or more email addresses, the search is created
+  **en attente** (pending) — no alerts are sent yet.
+- A confirmation email is sent to each address, with a link to a second form
+  ("Confirmer mon email"). Clicking it requires a GitHub account (free) to submit the
+  confirmation form.
+- Once at least one email confirms, the search becomes active with that email as
+  recipient; other emails can confirm later and get added too.
+- If no email is given, the search activates immediately using the default
+  (`ALERT_EMAIL`) — no confirmation needed, since that's the repo owner's own trusted
+  address.
+- This confirmation step exists specifically to stop someone from entering a stranger's
+  email address and causing them to receive unwanted automated mail.
+
+- [ ] **Step 2: Run the test suite once (docs-only change)**
+
+Run: `python -m pytest -v`
+Expected: 71 passed, unchanged.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add README.md
+git commit -m "docs: document the email confirmation requirement"
+```
+
+---
+
+### Task 13: Manual end-to-end verification (final)
 
 **Files:** none (verification only).
 
 - [ ] **Step 1: Run the full test suite one more time**
 
 Run: `python -m pytest -v`
-Expected: 54 passed, output pristine.
+Expected: 71 passed, output pristine.
 
-- [ ] **Step 2: Locally simulate an issue submission**
+- [ ] **Step 2: Locally simulate the full new-search + confirmation flow**
 
 ```bash
+export GMAIL_ADDRESS="<real address>" GMAIL_APP_PASSWORD="<real app password>" \
+       GITHUB_REPOSITORY="LZ-Aissam/logement-crous-alert"
 export ISSUE_BODY='### Nom de la recherche
 
-Test manuel
+Test manuel confirmation
 
 ### Ville
 
@@ -849,28 +1797,49 @@ _No response_
 
 ### Email(s) de notification - optionnel
 
-_No response_'
+<a real, disposable test address you control>'
 python add_search.py
+cat pending_searches.json
 ```
 
-Expected: prints an `OK: recherche 'Test manuel' ajoutee...` message with a real geocoded
-URL for Rennes, and appends the entry to the local `searches.json`. Confirm with
-`cat searches.json`, then remove the test entry (`git checkout -- searches.json` or
-manually edit it back) before pushing — this was a local-only dry run.
+Expected: prints an "EN ATTENTE" message, `pending_searches.json` contains the new
+entry with one token, and a real confirmation email arrives at the test address with a
+working `https://github.com/LZ-Aissam/logement-crous-alert/issues/new?template=confirm-email.yml&code=...`
+link. Then simulate confirming it locally:
 
-- [ ] **Step 3: Push to GitHub and submit a real Issue Form**
+```bash
+export ISSUE_BODY="### Code de confirmation
 
-Push the branch, merge, and push to the GitHub remote. On the repository's Issues tab,
-click "New issue" and confirm "Nouvelle recherche de logement" appears as a template
-option. Submit it with a real city (e.g. one you don't already track) and no keywords.
-Confirm: the `add-search` workflow runs, the issue receives a confirmation comment, the
-issue closes automatically, and `searches.json` on the default branch now contains the
-new entry with a bot commit.
+<the token from pending_searches.json>"
+python confirm_email.py
+cat searches.json
+```
+
+Expected: the search moves into `searches.json` with the test email as recipient, and
+`pending_searches.json` no longer has an entry for it. Afterward, restore both files to
+their original committed state (`git checkout -- searches.json pending_searches.json`
+or delete `pending_searches.json` if it didn't exist before and reset `searches.json`) —
+this was a local-only dry run.
+
+- [ ] **Step 3: Push to GitHub and submit real Issue Forms**
+
+Push the branch, merge, and push to the GitHub remote (secrets `GMAIL_ADDRESS`,
+`GMAIL_APP_PASSWORD`, `ALERT_EMAIL` must already be configured, per the existing
+README). On the repository's Issues tab, confirm both "Nouvelle recherche de logement"
+and "Confirmer mon email" appear as template options. Submit a new search with a real
+city and a real test email address you control (not the repo owner's own email, to
+prove the pending flow). Confirm: the `add-search` workflow runs, comments that the
+search is pending, and does NOT close the issue... actually it should still close on
+success even though the search is pending (creating the pending record successfully
+IS the "success" outcome) — confirm the issue closes and a real confirmation email
+arrives at the test address. Click the link in that email (creating/using a GitHub
+account if needed) and submit the "Confirmer mon email" form. Confirm the
+`confirm-email` workflow runs, comments confirmation, closes that second issue, and
+`searches.json` on the default branch now contains the entry with the confirmed email.
 
 - [ ] **Step 4: Confirm the existing poller still works with the updated `searches.json`**
 
 Manually trigger the "Check CROUS housing" workflow (`workflow_dispatch`) and confirm it
-runs cleanly against the updated `searches.json` (no errors from the newly added
-search), then remove the test entry added in Step 3 if it was only for verification
-(edit `searches.json` on GitHub, or via a follow-up commit) to keep the repo's real
-configuration clean.
+runs cleanly against the updated `searches.json`, then remove the test entries added in
+Step 3 (edit `searches.json`/`pending_searches.json` on GitHub, or via a follow-up
+commit) to keep the repo's real configuration clean.
