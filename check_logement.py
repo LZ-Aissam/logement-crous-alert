@@ -118,7 +118,7 @@ def format_email_body(
 def send_email(
     subject: str, body: str, to_addrs: list[str], smtp_user: str, smtp_password: str
 ) -> None:
-    msg = MIMEText(body, "plain")
+    msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
     msg["From"] = smtp_user
     msg["To"] = ", ".join(to_addrs)

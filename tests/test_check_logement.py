@@ -1,6 +1,7 @@
 import json
 import requests
 import pytest
+from email import message_from_string
 
 import check_logement as mod
 
@@ -210,4 +211,7 @@ def test_send_email_logs_in_and_sends(monkeypatch):
     assert from_addr == "me@gmail.com"
     assert to_addrs == ["a@example.com", "b@example.com"]
     assert "Subject" in msg
-    assert "Body text" in msg
+    # Decode the message properly to verify actual body content
+    msg_obj = message_from_string(msg)
+    decoded_body = msg_obj.get_payload(decode=True).decode("utf-8")
+    assert "Body text" in decoded_body
