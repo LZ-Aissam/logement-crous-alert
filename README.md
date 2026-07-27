@@ -82,8 +82,9 @@ Marseille...), cette zone peut ne pas couvrir toute l'agglomération — le `bou
 l'URL générée peut être élargi à la main dans `searches.json` par la suite si besoin.
 
 Un bot prend ensuite le relais automatiquement : il géocode la ville, construit l'URL
-de recherche correspondante, l'ajoute à `searches.json`, et commente l'issue avec un
-résumé de ce qui a été créé. Si tout s'est bien passé, l'issue est fermée
+de recherche correspondante, puis crée la recherche (immédiatement, ou en attente de
+confirmation si tu as renseigné un email — voir la section suivante), et commente
+l'issue avec un résumé de ce qui a été créé. Si tout s'est bien passé, l'issue est fermée
 automatiquement. Si quelque chose a coincé (ville introuvable, nom déjà utilisé...), le
 bot commente en expliquant le problème et laisse l'issue ouverte — corrige simplement
 les champs et rouvre une nouvelle issue.
