@@ -161,6 +161,13 @@ def test_load_searches_rejects_top_level_object(tmp_path):
         mod.load_searches(path)
 
 
+def test_save_searches_writes_valid_json_list(tmp_path):
+    path = tmp_path / "searches.json"
+    entries = [{"name": "Brest", "url": "https://example.com/brest"}]
+    mod.save_searches(entries, path)
+    assert json.loads(path.read_text(encoding="utf-8")) == entries
+
+
 def test_format_email_body_includes_listing_details():
     # occupationModes[].rent (cents) is the real monthly rent, verified against the
     # live site: a real Agen listing had rent.min == rent.max == 41555 (415,55 EUR/mois)

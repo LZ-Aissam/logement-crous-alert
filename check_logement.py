@@ -109,6 +109,12 @@ def load_searches(path: Path = SEARCHES_PATH) -> list[dict[str, Any]]:
     return searches
 
 
+def save_searches(searches: list[dict[str, Any]], path: Path = SEARCHES_PATH) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(searches, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
 def _item_matches_keywords(item: dict[str, Any], keywords: list[str] | None) -> bool:
     if not keywords:
         return True
