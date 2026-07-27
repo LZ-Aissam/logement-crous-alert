@@ -1,3 +1,4 @@
+# CROUS housing availability check
 name: Check CROUS housing
 
 on:
