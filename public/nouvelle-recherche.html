@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nouvelle recherche - Alerte logement CROUS</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  label { display: block; margin-top: 1rem; font-weight: 600; }
+  input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+  button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; }
+  #result { margin-top: 1.5rem; padding: 1rem; border-radius: 4px; }
+  #result.success { background: #e6f4ea; }
+  #result.error { background: #fce8e6; }
+  #result.hidden { display: none; }
+  .honeypot { position: absolute; left: -9999px; top: -9999px; }
+</style>
+</head>
+<body>
+<h1>Nouvelle recherche</h1>
+<p>Surveille une ville sur trouverunlogement.lescrous.fr et recois un email des qu'un logement apparait.</p>
+<form id="search-form">
+  <label for="name">Nom de la recherche</label>
+  <input id="name" name="name" required placeholder="Brest">
+
+  <label for="city">Ville</label>
+  <input id="city" name="city" required placeholder="Brest 29200">
+
+  <label for="keywords">Mots-cles (residence, type de logement...) - optionnel</label>
+  <input id="keywords" name="keywords" placeholder="Kergoat, studio">
+
+  <label for="emails">Email(s) de notification - optionnel (max 3, separes par des virgules)</label>
+  <input id="emails" name="emails" placeholder="toi@example.com">
+
+  <div class="honeypot" aria-hidden="true">
+    <label for="website">Laisse ce champ vide</label>
+    <input id="website" name="website" tabindex="-1" autocomplete="off">
+  </div>
+
+  <button type="submit">Creer la recherche</button>
+</form>
+<div id="result" class="hidden"></div>
+
+<script>
+  const form = document.getElementById("search-form");
+  const result = document.getElementById("result");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    result.className = "hidden";
+
+    const payload = {
+      name: form.name.value,
+      city: form.city.value,
+      keywords: form.keywords.value,
+      emails: form.emails.value,
+      website: form.website.value,
+    };
+
+    try {
+      const response = await fetch("/.netlify/functions/create-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        result.textContent = data.error || "Une erreur est survenue.";
+        result.className = "error";
+        return;
+      }
+
+      result.innerHTML = data.issueUrl
+        ? 'Recherche soumise. <a href="' + data.issueUrl + '" target="_blank" rel="noopener">Suivre le traitement ici</a>.'
+        : "Recherche soumise.";
+      result.className = "success";
+      form.reset();
+    } catch (err) {
+      result.textContent = "Une erreur est survenue, reessaie dans quelques minutes.";
+      result.className = "error";
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirmer mon email - Alerte logement CROUS</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; }
+  #result { margin-top: 1.5rem; padding: 1rem; border-radius: 4px; }
+  #result.success { background: #e6f4ea; }
+  #result.error { background: #fce8e6; }
+  #result.hidden { display: none; }
+  .honeypot { position: absolute; left: -9999px; top: -9999px; }
+</style>
+</head>
+<body>
+<h1>Confirmer mon email</h1>
+<p>Clique sur le bouton ci-dessous pour confirmer que tu acceptes de recevoir des alertes logement a cette adresse.</p>
+
+<div class="honeypot" aria-hidden="true">
+  <label for="website">Laisse ce champ vide</label>
+  <input id="website" tabindex="-1" autocomplete="off">
+</div>
+
+<button id="confirm-button" type="button">Confirmer mon email</button>
+<div id="result" class="hidden"></div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const button = document.getElementById("confirm-button");
+  const result = document.getElementById("result");
+  const website = document.getElementById("website");
+
+  if (!code) {
+    button.disabled = true;
+    result.textContent = "Lien invalide : aucun code de confirmation trouve dans l'URL.";
+    result.className = "error";
+  }
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    result.className = "hidden";
+
+    try {
+      const response = await fetch("/.netlify/functions/confirm-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, website: website.value }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        result.textContent = data.error || "Une erreur est survenue.";
+        result.className = "error";
+        button.disabled = false;
+        return;
+      }
+
+      result.innerHTML = data.issueUrl
+        ? 'Confirmation envoyee. <a href="' + data.issueUrl + '" target="_blank" rel="noopener">Suivre le traitement ici</a>.'
+        : "Confirmation envoyee.";
+      result.className = "success";
+    } catch (err) {
+      result.textContent = "Une erreur est survenue, reessaie dans quelques minutes.";
+      result.className = "error";
+      button.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
