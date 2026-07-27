@@ -104,10 +104,11 @@ la recherche n'est **pas activée tout de suite**. Elle est créée **en attente
 (stockée dans `pending_searches.json`, pas encore dans `searches.json`) et n'envoie
 aucune alerte pour l'instant.
 
-Un email de confirmation est envoyé à chaque adresse renseignée, avec un lien vers un
-second formulaire ("Confirmer mon email"). Ce lien ouvre une nouvelle Issue
-pré-remplie avec un code de confirmation unique ; soumettre cette issue nécessite un
-compte GitHub (gratuit).
+Un email de confirmation est envoyé à chaque adresse renseignée, avec un lien à
+cliquer pour confirmer. Par défaut ce lien ouvre une nouvelle Issue GitHub
+pré-remplie avec un code de confirmation unique (nécessite un compte GitHub,
+gratuit) — sauf si le formulaire public Netlify est configuré (voir plus bas), auquel
+cas le lien ouvre une simple page web, sans compte requis.
 
 Dès qu'**une seule** des adresses confirme, la recherche devient active dans
 `searches.json`, avec cette adresse comme destinataire. Les autres adresses peuvent
@@ -128,6 +129,41 @@ est public — ne mets pas d'adresse que tu ne veux pas voir apparaître publiqu
 GitHub, y compris dans l'historique Git une fois l'adresse retirée du fichier courant.
 (Les codes de confirmation eux-mêmes ne sont jamais stockés en clair — seule leur
 empreinte cryptographique l'est.)
+
+## Formulaire public sans compte GitHub (optionnel, via Netlify)
+
+Par défaut, créer une recherche ou confirmer un email nécessite un compte GitHub (pour
+soumettre les Issue Forms ci-dessus). Pour ouvrir ça à n'importe qui sans compte, tu
+peux déployer les pages `public/nouvelle-recherche.html` et `public/confirmer.html` sur
+Netlify — elles créent les mêmes Issues GitHub à ta place, via deux Netlify Functions
+(`netlify/functions/create-search.js` et `confirm-email.js`). Le backend Python et les
+workflows GitHub Actions ne changent pas : ils traitent ces Issues exactement comme si
+elles avaient été soumises à la main.
+
+1. Crée un compte Netlify et lie-le à ce dépôt GitHub (Netlify détecte automatiquement
+   `netlify.toml` : `public/` comme dossier publié, `netlify/functions/` comme dossier
+   de fonctions).
+2. Crée un token GitHub *fine-grained* (Settings > Developer settings > Personal access
+   tokens > Fine-grained tokens), limité à **ce seul dépôt**, avec la permission
+   **Issues: Read and write** uniquement (rien d'autre).
+3. Dans les paramètres du site Netlify (Site configuration > Environment variables),
+   ajoute :
+   - `GITHUB_PAT` : le token créé à l'étape 2
+   - `GITHUB_REPOSITORY` : `LZ-Aissam/logement-crous-alert`
+4. Ajoute un secret sur le dépôt GitHub (Settings > Secrets and variables > Actions) :
+   - `CONFIRMATION_BASE_URL` : l'URL de la page de confirmation sur ton site Netlify,
+     ex. `https://ton-site.netlify.app/confirmer.html`
+
+   Sans ce secret, les liens de confirmation continuent de pointer vers GitHub comme
+   avant — rien ne casse si tu ne déploies jamais Netlify.
+5. Le formulaire GitHub direct (section ci-dessus) continue de fonctionner en
+   parallèle : c'est une alternative, pas un remplacement.
+
+**Limite assumée** : la protection anti-abus (champ honeypot + limite de 5
+requêtes/heure par IP) est faite au mieux, sans garantie forte — suffisante contre le
+spam basique, pas contre un attaquant déterminé. Comme pour le formulaire GitHub actuel,
+il n'y a pas de compte utilisateur ni de tableau de bord pour gérer ses propres
+recherches après coup.
 
 ## Développement local
 
