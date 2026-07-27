@@ -34,7 +34,7 @@ Actions — pas besoin de garder un PC allumé.
    recevoir un email avec tout le lot dès le premier run — c'est voulu, pas un bug.
 
 5. **Activer le workflow** : l'onglet Actions du dépôt doit afficher "Check CROUS
-   housing". Il se déclenche automatiquement toutes les ~10 minutes une fois poussé
+   housing". Il se déclenche automatiquement toutes les ~5 minutes une fois poussé
    sur la branche par défaut. Pour un premier test immédiat sans attendre : onglet
    Actions > "Check CROUS housing" > "Run workflow".
 
@@ -65,7 +65,7 @@ python check_logement.py
 
 ## À savoir
 
-Le bot commit et push automatiquement `seen.json` à chaque run (toutes les ~10 minutes)
+Le bot commit et push automatiquement `seen.json` à chaque run (toutes les ~5 minutes)
 dès qu'un changement est détecté. Il est donc normal de voir de temps en temps des
 commits automatiques signés "logement-alert-bot" dans l'historique du dépôt — ce n'est
 pas un problème.
