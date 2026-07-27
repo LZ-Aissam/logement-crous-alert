@@ -4,6 +4,7 @@ import pytest
 
 import check_logement as clog
 import confirm_email as mod
+from add_search import hash_token
 
 
 def test_main_confirms_first_email_and_activates_search(tmp_path, monkeypatch):
@@ -14,7 +15,7 @@ def test_main_confirms_first_email_and_activates_search(tmp_path, monkeypatch):
             {
                 "Agen": {
                     "search": {"name": "Agen", "url": "https://example.com/agen"},
-                    "pending_emails": {"tok123": "a@example.com"},
+                    "pending_emails": {hash_token("tok123"): "a@example.com"},
                 }
             }
         ),
@@ -46,7 +47,7 @@ def test_main_confirms_second_email_appends_to_existing_search(tmp_path, monkeyp
             {
                 "Agen": {
                     "search": {"name": "Agen", "url": "https://example.com/agen"},
-                    "pending_emails": {"tok456": "b@example.com"},
+                    "pending_emails": {hash_token("tok456"): "b@example.com"},
                 }
             }
         ),
@@ -71,7 +72,10 @@ def test_main_keeps_pending_entry_when_other_emails_remain(tmp_path, monkeypatch
             {
                 "Agen": {
                     "search": {"name": "Agen", "url": "https://example.com/agen"},
-                    "pending_emails": {"tok1": "a@example.com", "tok2": "b@example.com"},
+                    "pending_emails": {
+                        hash_token("tok1"): "a@example.com",
+                        hash_token("tok2"): "b@example.com",
+                    },
                 }
             }
         ),
@@ -100,3 +104,29 @@ def test_main_requires_code(monkeypatch):
     monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\n_No response_\n")
 
     assert mod.main() == 1
+
+
+def test_confirmation_requires_original_token_not_stored_hash(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    raw_token = "super-secret-raw-token"
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen"},
+                    "pending_emails": {hash_token(raw_token): "a@example.com"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Submitting the STORED HASH (what an attacker could read from the public repo)
+    # must NOT work -- only the original raw token does.
+    monkeypatch.setenv("ISSUE_BODY", f"### Code de confirmation\n\n{hash_token(raw_token)}\n")
+    assert mod.main() == 1
+
+    # Submitting the actual raw token (only known to whoever received the real email)
+    # must work.
+    monkeypatch.setenv("ISSUE_BODY", f"### Code de confirmation\n\n{raw_token}\n")
+    assert mod.main() == 0

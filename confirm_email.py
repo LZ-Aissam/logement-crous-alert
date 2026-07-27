@@ -7,6 +7,7 @@ import sys
 
 import check_logement as clog
 from add_search import (
+    hash_token,
     load_pending_searches,
     parse_issue_form_body,
     save_pending_searches,
@@ -25,13 +26,14 @@ def main() -> int:
         return 1
 
     pending = load_pending_searches()
+    code_hash = hash_token(code)
 
     for search_name, record in pending.items():
         pending_emails = record.get("pending_emails", {})
-        if code not in pending_emails:
+        if code_hash not in pending_emails:
             continue
 
-        email = pending_emails.pop(code)
+        email = pending_emails.pop(code_hash)
 
         if clog.SEARCHES_PATH.exists():
             try:

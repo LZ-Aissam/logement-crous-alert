@@ -1,6 +1,7 @@
 """Process a GitHub Issue Form submission to add a new search to searches.json."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -115,6 +116,10 @@ def save_pending_searches(pending: dict[str, Any], path: Path = PENDING_SEARCHES
     with path.open("w", encoding="utf-8") as f:
         json.dump(pending, f, indent=2, ensure_ascii=False)
         f.write("\n")
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def build_confirmation_url(token: str) -> str:
@@ -254,7 +259,7 @@ def main() -> int:
                 print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")
                 failed_emails.append(email)
                 continue
-            pending_emails[token] = email
+            pending_emails[hash_token(token)] = email
 
         if not pending_emails:
             print(f"ERROR: aucun email de confirmation n'a pu etre envoye pour {name!r}")
