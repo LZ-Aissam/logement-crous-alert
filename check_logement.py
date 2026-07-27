@@ -63,13 +63,21 @@ def load_seen(path: Path = SEEN_PATH) -> dict[str, list[str]]:
         return {}
     try:
         with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except json.JSONDecodeError as exc:
         print(
-            f"error: corrupt JSON in {path}, falling back to empty state: {exc}",
+            f"[ERROR] corrupt JSON in {path}, falling back to empty state: {exc}",
             file=sys.stderr,
         )
         return {}
+    if not isinstance(data, dict):
+        print(
+            f"[ERROR] unexpected JSON shape in {path} (expected an object), "
+            "falling back to empty state",
+            file=sys.stderr,
+        )
+        return {}
+    return data
 
 
 def save_seen(seen: dict[str, list[str]], path: Path = SEEN_PATH) -> None:
@@ -90,8 +98,13 @@ def find_new_items(
 def load_searches(path: Path = SEARCHES_PATH) -> list[dict[str, Any]]:
     with path.open("r", encoding="utf-8") as f:
         searches = json.load(f)
+    if not isinstance(searches, list):
+        raise ValueError(
+            f"{path} must contain a JSON list of search objects, "
+            f"got {type(searches).__name__}"
+        )
     for search in searches:
-        if "name" not in search or "url" not in search:
+        if not isinstance(search, dict) or "name" not in search or "url" not in search:
             raise ValueError(f"invalid search entry, missing name/url: {search}")
     return searches
 
@@ -104,10 +117,10 @@ def format_email_body(
         "",
     ]
     for item in new_items:
-        residence = item.get("residence", {})
+        residence = item.get("residence") or {}
         label = item.get("label", "(sans libelle)")
         address = residence.get("address", "(adresse inconnue)")
-        amount = item.get("bookingData", {}).get("amount")
+        amount = (item.get("bookingData") or {}).get("amount")
         rent_str = f"{amount / 100:.2f} EUR/mois" if amount is not None else "loyer non precise"
         lines.append(f"- {label} - {residence.get('label', '')} - {address} - {rent_str}")
     lines.append("")
@@ -140,7 +153,12 @@ def main() -> int:
     smtp_password = _require_env("GMAIL_APP_PASSWORD")
     default_email = _require_env("ALERT_EMAIL")
 
-    searches = load_searches()
+    try:
+        searches = load_searches()
+    except (ValueError, json.JSONDecodeError, OSError) as exc:
+        print(f"[ERROR] could not load searches.json: {exc}", file=sys.stderr)
+        return 1
+
     seen = load_seen()
     any_success = False
 
@@ -148,21 +166,23 @@ def main() -> int:
         name = search["name"]
         url = search["url"]
         recipients = search.get("emails") or [default_email]
+
         try:
             html = fetch_html(url)
             results = parse_search_results(html)
-        except SearchFetchError as exc:
+            items = results.get("items") or []
+            seen_ids = seen.get(name, [])
+            new_items, all_ids = find_new_items(items, seen_ids)
+            if new_items:
+                subject = f"[Logement] {len(new_items)} nouveau(x) pour {name}"
+                body = format_email_body(name, new_items, url)
+        except (SearchFetchError, KeyError, TypeError, AttributeError) as exc:
             print(f"[ERROR] {name}: {exc}", file=sys.stderr)
             continue
 
         any_success = True
-        items = results.get("items", [])
-        seen_ids = seen.get(name, [])
-        new_items, all_ids = find_new_items(items, seen_ids)
 
         if new_items:
-            subject = f"[Logement] {len(new_items)} nouveau(x) pour {name}"
-            body = format_email_body(name, new_items, url)
             try:
                 send_email(subject, body, recipients, smtp_user, smtp_password)
             except Exception as exc:
@@ -172,9 +192,10 @@ def main() -> int:
         else:
             print(f"[OK] {name}: no new listings ({len(items)} total)")
 
-        seen[name] = all_ids
+        seen[name] = sorted(set(seen_ids) | set(all_ids))
 
-    save_seen(seen)
+    if any_success:
+        save_seen(seen)
     return 0 if any_success else 1
 
 
