@@ -287,6 +287,7 @@ def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
         "### Email(s) de notification - optionnel\n\npas-un-email\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
 
     exit_code = mod.main()
 
