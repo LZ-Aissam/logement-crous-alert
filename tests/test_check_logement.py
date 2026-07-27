@@ -184,6 +184,15 @@ def test_format_email_body_handles_missing_rent():
     assert "non pr" in body  # "loyer non précisé"
 
 
+def test_format_email_body_handles_null_residence_and_booking_data():
+    # residence/bookingData keys are present but explicitly null (JSON null -> None),
+    # not merely absent -- must not raise AttributeError from calling .get() on None.
+    new_items = [{"label": "T1", "residence": None, "bookingData": None}]
+    body = mod.format_email_body("Brest", new_items, "https://example.com/search")
+    assert "T1" in body
+    assert "non pr" in body  # "loyer non précisé" fallback for missing rent
+
+
 class _FakeSMTP:
     instances = []
 
@@ -357,6 +366,70 @@ def test_main_broken_search_does_not_block_others(tmp_path, monkeypatch):
     assert mod.main() == 0
     seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
     assert seen == {"Brest": []}
+
+
+def test_main_shape_drift_isolates_broken_search(tmp_path, monkeypatch):
+    # parse_search_results itself succeeds (doesn't raise SearchFetchError), but the
+    # data it hands back is malformed for "Broken" (item missing its "id" key), which
+    # would previously crash find_new_items/format_email_body and abort the whole run.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {"name": "Broken", "url": "https://example.com/broken"},
+                {"name": "Brest", "url": "https://example.com/brest"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: url)
+
+    def fake_parse(html):
+        if "broken" in html:
+            return {"total": {"value": 1}, "items": [{"label": "T1"}]}  # missing "id"
+        return {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]}
+
+    monkeypatch.setattr(mod, "parse_search_results", fake_parse)
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: None)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0  # Brest still succeeds despite Broken's shape drift
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": ["1"]}
+    assert "Broken" not in seen
+
+
+def test_main_unions_seen_ids_instead_of_replacing(tmp_path, monkeypatch):
+    # A previously-seen id ("99") that no longer appears in this run's results (e.g. it
+    # scrolled past page 1) must be preserved, unioned with the newly-seen id, not lost.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        encoding="utf-8",
+    )
+    (tmp_path / "seen.json").write_text(json.dumps({"Brest": ["99"]}), encoding="utf-8")
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: None)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": ["1", "99"]}
 
 
 def test_main_all_searches_fail_returns_error_code(tmp_path, monkeypatch):
