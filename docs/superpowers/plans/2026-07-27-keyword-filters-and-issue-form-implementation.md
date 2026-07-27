@@ -1773,7 +1773,7 @@ git commit -m "docs: document the email confirmation requirement"
 
 **Files:** none (verification only).
 
-- [ ] **Step 1: Run the full test suite one more time**
+- [x] **Step 1: Run the full test suite one more time**
 
 Run: `python -m pytest -v`
 Expected: 71 passed, output pristine.
@@ -1821,7 +1821,7 @@ their original committed state (`git checkout -- searches.json pending_searches.
 or delete `pending_searches.json` if it didn't exist before and reset `searches.json`) —
 this was a local-only dry run.
 
-- [ ] **Step 3: Push to GitHub and submit real Issue Forms**
+- [x] **Step 3: Push to GitHub and submit real Issue Forms**
 
 Push the branch, merge, and push to the GitHub remote (secrets `GMAIL_ADDRESS`,
 `GMAIL_APP_PASSWORD`, `ALERT_EMAIL` must already be configured, per the existing
@@ -1837,7 +1837,7 @@ account if needed) and submit the "Confirmer mon email" form. Confirm the
 `confirm-email` workflow runs, comments confirmation, closes that second issue, and
 `searches.json` on the default branch now contains the entry with the confirmed email.
 
-- [ ] **Step 4: Confirm the existing poller still works with the updated `searches.json`**
+- [x] **Step 4: Confirm the existing poller still works with the updated `searches.json`**
 
 Manually trigger the "Check CROUS housing" workflow (`workflow_dispatch`) and confirm it
 runs cleanly against the updated `searches.json`, then remove the test entries added in
