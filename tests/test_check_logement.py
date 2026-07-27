@@ -101,6 +101,15 @@ def test_load_seen_returns_empty_dict_on_corrupt_json(tmp_path, capsys):
     assert str(path) in captured.err
 
 
+def test_load_seen_returns_empty_dict_on_wrong_shape(tmp_path, capsys):
+    path = tmp_path / "seen.json"
+    path.write_text("[]", encoding="utf-8")
+    assert mod.load_seen(path) == {}
+    captured = capsys.readouterr()
+    assert captured.err
+    assert str(path) in captured.err
+
+
 def test_find_new_items_first_run_all_new():
     items = [{"id": 1}, {"id": 2}]
     new_items, all_ids = mod.find_new_items(items, [])
@@ -141,6 +150,13 @@ def test_load_searches_rejects_entry_missing_name(tmp_path):
 def test_load_searches_rejects_entry_missing_url(tmp_path):
     path = tmp_path / "searches.json"
     path.write_text(json.dumps([{"name": "Brest"}]), encoding="utf-8")
+    with pytest.raises(ValueError):
+        mod.load_searches(path)
+
+
+def test_load_searches_rejects_top_level_object(tmp_path):
+    path = tmp_path / "searches.json"
+    path.write_text(json.dumps({"name": "Brest", "url": "https://example.com/brest"}), encoding="utf-8")
     with pytest.raises(ValueError):
         mod.load_searches(path)
 
@@ -363,6 +379,53 @@ def test_main_all_searches_fail_returns_error_code(tmp_path, monkeypatch):
     assert not (tmp_path / "seen.json").exists() or json.loads(
         (tmp_path / "seen.json").read_text(encoding="utf-8")
     ) == {}
+
+
+def test_main_malformed_searches_json_returns_error(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        '[{"name": "Brest", "url": "https://example.com/brest",}]',  # trailing comma
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    assert mod.main() == 1
+    captured = capsys.readouterr()
+    assert "[ERROR]" in captured.err
+    assert "searches.json" in captured.err
+
+
+def test_main_uses_alert_email_default_when_search_has_no_emails(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+    captured_to_addrs = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_user, smtp_password: captured_to_addrs.append(
+            to_addrs
+        ),
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert captured_to_addrs == [["default@example.com"]]
 
 
 def test_main_missing_env_var_returns_error(tmp_path, monkeypatch):
