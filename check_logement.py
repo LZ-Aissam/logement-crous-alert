@@ -85,3 +85,12 @@ def find_new_items(
     new_items = [item for item in items if str(item["id"]) not in seen_set]
     all_ids = sorted({str(item["id"]) for item in items})
     return new_items, all_ids
+
+
+def load_searches(path: Path = SEARCHES_PATH) -> list[dict[str, Any]]:
+    with path.open("r", encoding="utf-8") as f:
+        searches = json.load(f)
+    for search in searches:
+        if "name" not in search or "url" not in search:
+            raise ValueError(f"invalid search entry, missing name/url: {search}")
+    return searches

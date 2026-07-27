@@ -118,3 +118,27 @@ def test_find_new_items_no_items_no_new():
     new_items, all_ids = mod.find_new_items([], ["1"])
     assert new_items == []
     assert all_ids == []
+
+
+def test_load_searches_reads_valid_list(tmp_path):
+    path = tmp_path / "searches.json"
+    path.write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        encoding="utf-8",
+    )
+    searches = mod.load_searches(path)
+    assert searches == [{"name": "Brest", "url": "https://example.com/brest"}]
+
+
+def test_load_searches_rejects_entry_missing_name(tmp_path):
+    path = tmp_path / "searches.json"
+    path.write_text(json.dumps([{"url": "https://example.com/brest"}]), encoding="utf-8")
+    with pytest.raises(ValueError):
+        mod.load_searches(path)
+
+
+def test_load_searches_rejects_entry_missing_url(tmp_path):
+    path = tmp_path / "searches.json"
+    path.write_text(json.dumps([{"name": "Brest"}]), encoding="utf-8")
+    with pytest.raises(ValueError):
+        mod.load_searches(path)
