@@ -34,7 +34,10 @@ body:
     id: emails
     attributes:
       label: Email(s) de notification - optionnel
-      description: Separes par des virgules. Laisse vide pour utiliser l'email par defaut.
+      description: >-
+        Separes par des virgules (max 3). Laisse vide pour utiliser l'email par
+        defaut. Chaque adresse recevra un email de confirmation a valider avant de
+        recevoir des alertes.
       placeholder: toi@example.com
     validations:
       required: false

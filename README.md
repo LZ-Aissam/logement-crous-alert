@@ -122,11 +122,12 @@ Cette étape existe pour une seule raison : empêcher que quelqu'un renseigne l'
 email d'un inconnu et lui fasse recevoir, sans son accord, des emails automatiques
 depuis le compte Gmail du propriétaire du dépôt.
 
-**Attention, ces données restent publiques :** les adresses email que tu soumets (et
-les codes de confirmation) finissent dans les fichiers du dépôt (`searches.json`,
-`pending_searches.json`), qui est public — ne mets pas d'adresse que tu ne veux pas
-voir apparaître publiquement sur GitHub, y compris dans l'historique Git une fois
-l'adresse retirée du fichier courant.
+**Attention, ces données restent publiques :** les adresses email que tu soumets
+finissent dans les fichiers du dépôt (`searches.json`, `pending_searches.json`), qui
+est public — ne mets pas d'adresse que tu ne veux pas voir apparaître publiquement sur
+GitHub, y compris dans l'historique Git une fois l'adresse retirée du fichier courant.
+(Les codes de confirmation eux-mêmes ne sont jamais stockés en clair — seule leur
+empreinte cryptographique l'est.)
 
 ## Développement local
 
