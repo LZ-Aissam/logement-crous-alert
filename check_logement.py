@@ -155,6 +155,7 @@ def main() -> int:
             print(f"[ERROR] {name}: {exc}", file=sys.stderr)
             continue
 
+        any_success = True
         items = results.get("items", [])
         seen_ids = seen.get(name, [])
         new_items, all_ids = find_new_items(items, seen_ids)
@@ -162,13 +163,16 @@ def main() -> int:
         if new_items:
             subject = f"[Logement] {len(new_items)} nouveau(x) pour {name}"
             body = format_email_body(name, new_items, url)
-            send_email(subject, body, recipients, smtp_user, smtp_password)
+            try:
+                send_email(subject, body, recipients, smtp_user, smtp_password)
+            except Exception as exc:
+                print(f"[ERROR] {name}: failed to send email: {exc}", file=sys.stderr)
+                continue
             print(f"[OK] {name}: sent alert for {len(new_items)} new listing(s)")
         else:
             print(f"[OK] {name}: no new listings ({len(items)} total)")
 
         seen[name] = all_ids
-        any_success = True
 
     save_seen(seen)
     return 0 if any_success else 1

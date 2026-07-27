@@ -251,6 +251,41 @@ def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatc
     assert seen == {"Brest": ["1"]}
 
 
+def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {"name": "Rennes", "url": "https://example.com/rennes"},
+                {"name": "Brest", "url": "https://example.com/brest"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+
+    def fake_send_email(subject, body, to_addrs, smtp_user, smtp_password):
+        if "Rennes" in subject:
+            raise mod.smtplib.SMTPException("boom")
+
+    monkeypatch.setattr(mod, "send_email", fake_send_email)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": ["1"]}
+
+
 def test_main_no_new_listings_sends_no_email(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(
