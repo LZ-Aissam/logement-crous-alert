@@ -544,3 +544,73 @@ def test_main_missing_env_var_returns_error(tmp_path, monkeypatch):
 
     with pytest.raises(SystemExit):
         mod.main()
+
+
+def test_item_matches_keywords_no_keywords_matches_everything():
+    assert mod._item_matches_keywords({"label": "T1"}, None) is True
+    assert mod._item_matches_keywords({"label": "T1"}, []) is True
+
+
+def test_item_matches_keywords_matches_residence_label():
+    item = {"label": "T1", "residence": {"label": "Kergoat", "address": "1 rue X"}}
+    assert mod._item_matches_keywords(item, ["kergoat"]) is True
+
+
+def test_item_matches_keywords_matches_item_label():
+    item = {"label": "Studio meuble", "residence": {"label": "R", "address": "A"}}
+    assert mod._item_matches_keywords(item, ["studio"]) is True
+
+
+def test_item_matches_keywords_matches_address():
+    item = {"label": "T1", "residence": {"label": "R", "address": "5 rue de Kergoat"}}
+    assert mod._item_matches_keywords(item, ["kergoat"]) is True
+
+
+def test_item_matches_keywords_no_match_returns_false():
+    item = {"label": "T1", "residence": {"label": "Foo", "address": "Bar"}}
+    assert mod._item_matches_keywords(item, ["kergoat"]) is False
+
+
+def test_item_matches_keywords_case_insensitive_and_any_of_multiple():
+    item = {"label": "CHAMBRE", "residence": {"label": "Foo", "address": "Bar"}}
+    assert mod._item_matches_keywords(item, ["Kergoat", "chambre"]) is True
+
+
+def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [{"name": "Brest", "url": "https://example.com/brest", "keywords": ["kergoat"]}]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {
+            "total": {"value": 2},
+            "items": [
+                {"id": 1, "label": "T1", "residence": {"label": "Kergoat", "address": "A"}},
+                {"id": 2, "label": "T1", "residence": {"label": "Autre", "address": "B"}},
+            ],
+        },
+    )
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(body),
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert len(sent) == 1
+    assert "Kergoat" in sent[0]
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": ["1"]}

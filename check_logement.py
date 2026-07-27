@@ -109,6 +109,21 @@ def load_searches(path: Path = SEARCHES_PATH) -> list[dict[str, Any]]:
     return searches
 
 
+def _item_matches_keywords(item: dict[str, Any], keywords: list[str] | None) -> bool:
+    if not keywords:
+        return True
+    residence = item.get("residence") or {}
+    haystack = " ".join(
+        str(x)
+        for x in [
+            item.get("label") or "",
+            residence.get("label") or "",
+            residence.get("address") or "",
+        ]
+    ).lower()
+    return any(kw.strip().lower() in haystack for kw in keywords if kw.strip())
+
+
 def _format_rent(item: dict[str, Any]) -> str:
     # The monthly rent lives in occupationModes[].rent (cents), not bookingData.amount
     # -- bookingData.amount is the deductible advance on the first month's rent, a
@@ -188,6 +203,7 @@ def main() -> int:
             html = fetch_html(url)
             results = parse_search_results(html)
             items = results.get("items") or []
+            items = [i for i in items if _item_matches_keywords(i, search.get("keywords"))]
             seen_ids = seen.get(name, [])
             new_items, all_ids = find_new_items(items, seen_ids)
             if new_items:
