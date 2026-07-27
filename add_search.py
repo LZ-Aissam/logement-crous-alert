@@ -111,9 +111,13 @@ def main() -> int:
         print("ERROR: le nom de la recherche et la ville sont obligatoires")
         return 1
 
-    try:
-        searches = clog.load_searches()
-    except (ValueError, json.JSONDecodeError, OSError):
+    if clog.SEARCHES_PATH.exists():
+        try:
+            searches = clog.load_searches()
+        except (ValueError, json.JSONDecodeError, OSError) as exc:
+            print(f"ERROR: impossible de lire searches.json existant : {exc}")
+            return 1
+    else:
         searches = []
 
     if any(s["name"].strip().lower() == name.strip().lower() for s in searches):

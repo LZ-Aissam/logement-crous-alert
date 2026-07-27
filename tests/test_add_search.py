@@ -211,6 +211,48 @@ def test_main_warns_when_keyword_not_found_but_still_adds(tmp_path, monkeypatch,
     assert "Typo123" in out
 
 
+def test_main_aborts_on_invalid_existing_searches_json(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    original_content = '{"not": "a list"}'
+    (tmp_path / "searches.json").write_text(original_content, encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert (tmp_path / "searches.json").read_text(encoding="utf-8") == original_content
+
+
+def test_main_still_succeeds_when_discovery_fetch_fails(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text("[]", encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(
+        clog, "fetch_html", lambda url: (_ for _ in ()).throw(clog.SearchFetchError("boom"))
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert len(searches) == 1
+    out = capsys.readouterr().out
+    assert "Aucun logement disponible actuellement dans cette zone" in out
+
+
 def test_main_requires_name_and_city(monkeypatch):
     body = (
         "### Nom de la recherche\n\n_No response_\n\n"
