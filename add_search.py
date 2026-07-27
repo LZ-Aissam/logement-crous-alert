@@ -123,6 +123,9 @@ def hash_token(token: str) -> str:
 
 
 def build_confirmation_url(token: str) -> str:
+    base_url = os.environ.get("CONFIRMATION_BASE_URL")
+    if base_url:
+        return f"{base_url}?code={urllib.parse.quote(token)}"
     repo = os.environ.get("GITHUB_REPOSITORY", "OWNER/REPO")
     return (
         f"https://github.com/{repo}/issues/new"
@@ -134,8 +137,8 @@ def build_confirmation_email_body(search_name: str, confirmation_url: str) -> st
     return (
         "Quelqu'un a demande a recevoir des alertes de logement CROUS a cette adresse "
         f"email, pour la recherche {search_name!r}.\n\n"
-        "Si c'est bien toi, confirme en cliquant sur ce lien (necessite un compte "
-        f"GitHub, gratuit) :\n{confirmation_url}\n\n"
+        "Si c'est bien toi, confirme en cliquant sur ce lien :\n"
+        f"{confirmation_url}\n\n"
         "Si tu n'es pas a l'origine de cette demande, ignore simplement cet email -- "
         "rien ne sera active sans ta confirmation."
     )

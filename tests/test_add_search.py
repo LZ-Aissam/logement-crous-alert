@@ -98,6 +98,33 @@ def test_build_search_url_contains_bounds_and_tool_id():
     assert "locationName=" in url
 
 
+def test_build_confirmation_url_falls_back_to_github_when_base_url_unset(monkeypatch):
+    monkeypatch.delenv("CONFIRMATION_BASE_URL", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
+
+    url = mod.build_confirmation_url("abc123")
+
+    assert url == (
+        "https://github.com/LZ-Aissam/logement-crous-alert/issues/new"
+        "?template=confirm-email.yml&code=abc123"
+    )
+
+
+def test_build_confirmation_url_uses_confirmation_base_url_when_set(monkeypatch):
+    monkeypatch.setenv("CONFIRMATION_BASE_URL", "https://example.netlify.app/confirmer.html")
+
+    url = mod.build_confirmation_url("abc123")
+
+    assert url == "https://example.netlify.app/confirmer.html?code=abc123"
+
+
+def test_build_confirmation_email_body_does_not_mention_github_account():
+    body = mod.build_confirmation_email_body("Brest", "https://example.com/confirm?code=x")
+
+    assert "compte GitHub" not in body
+    assert "https://example.com/confirm?code=x" in body
+
+
 def test_discover_filters_returns_distinct_sorted_names():
     items = [
         {"label": "T1", "residence": {"label": "Kergoat"}},
