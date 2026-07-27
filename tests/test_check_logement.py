@@ -215,3 +215,130 @@ def test_send_email_logs_in_and_sends(monkeypatch):
     msg_obj = message_from_string(msg)
     decoded_body = msg_obj.get_payload(decode=True).decode("utf-8")
     assert "Body text" in decoded_body
+
+
+def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["x@example.com"]}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(
+            (subject, to_addrs)
+        ),
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert sent == [(sent[0][0], ["x@example.com"])]
+    assert "Brest" in sent[0][0]
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": ["1"]}
+
+
+def test_main_no_new_listings_sends_no_email(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        encoding="utf-8",
+    )
+    (tmp_path / "seen.json").write_text(json.dumps({"Brest": ["1"]}), encoding="utf-8")
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+    monkeypatch.setattr(
+        mod, "send_email", lambda *a, **k: pytest.fail("should not send email")
+    )
+
+    assert mod.main() == 0
+
+
+def test_main_broken_search_does_not_block_others(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {"name": "Broken", "url": "https://example.com/broken"},
+                {"name": "Brest", "url": "https://example.com/brest"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    def fake_fetch(url):
+        if "broken" in url:
+            raise mod.SearchFetchError("boom")
+        return "<fake html>"
+
+    monkeypatch.setattr(mod, "fetch_html", fake_fetch)
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 0}, "items": []},
+    )
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: None)
+
+    assert mod.main() == 0
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": []}
+
+
+def test_main_all_searches_fail_returns_error_code(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    def fake_fetch(url):
+        raise mod.SearchFetchError("boom")
+
+    monkeypatch.setattr(mod, "fetch_html", fake_fetch)
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: pytest.fail("should not send email"))
+
+    assert mod.main() == 1
+    assert not (tmp_path / "seen.json").exists() or json.loads(
+        (tmp_path / "seen.json").read_text(encoding="utf-8")
+    ) == {}
+
+
+def test_main_missing_env_var_returns_error(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("GMAIL_ADDRESS", raising=False)
+    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+    monkeypatch.delenv("ALERT_EMAIL", raising=False)
+
+    with pytest.raises(SystemExit):
+        mod.main()

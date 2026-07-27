@@ -125,3 +125,54 @@ def send_email(
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=FETCH_TIMEOUT) as server:
         server.login(smtp_user, smtp_password)
         server.sendmail(smtp_user, to_addrs, msg.as_string())
+
+
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        print(f"[ERROR] missing required environment variable: {name}", file=sys.stderr)
+        sys.exit(1)
+    return value
+
+
+def main() -> int:
+    smtp_user = _require_env("GMAIL_ADDRESS")
+    smtp_password = _require_env("GMAIL_APP_PASSWORD")
+    default_email = _require_env("ALERT_EMAIL")
+
+    searches = load_searches()
+    seen = load_seen()
+    any_success = False
+
+    for search in searches:
+        name = search["name"]
+        url = search["url"]
+        recipients = search.get("emails") or [default_email]
+        try:
+            html = fetch_html(url)
+            results = parse_search_results(html)
+        except SearchFetchError as exc:
+            print(f"[ERROR] {name}: {exc}", file=sys.stderr)
+            continue
+
+        items = results.get("items", [])
+        seen_ids = seen.get(name, [])
+        new_items, all_ids = find_new_items(items, seen_ids)
+
+        if new_items:
+            subject = f"[Logement] {len(new_items)} nouveau(x) pour {name}"
+            body = format_email_body(name, new_items, url)
+            send_email(subject, body, recipients, smtp_user, smtp_password)
+            print(f"[OK] {name}: sent alert for {len(new_items)} new listing(s)")
+        else:
+            print(f"[OK] {name}: no new listings ({len(items)} total)")
+
+        seen[name] = all_ids
+        any_success = True
+
+    save_seen(seen)
+    return 0 if any_success else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
