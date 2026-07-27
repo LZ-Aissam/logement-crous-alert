@@ -86,9 +86,10 @@ les champs et rouvre une nouvelle issue.
 À noter : s'il n'y a actuellement aucun logement disponible dans la ville demandée, le
 bot ne peut pas te proposer de vrais noms de résidences ou de types de logement pour
 vérifier l'orthographe de tes mots-clés. Il crée quand même la recherche normalement,
-juste sans cette vérification — tu ne découvriras une éventuelle faute de frappe dans
-un mot-clé que le jour où un logement correspondant à la zone deviendra disponible et ne
-matchera pas.
+juste sans cette vérification — tu ne sauras pas si un mot-clé est mal orthographié tant
+qu'aucun logement de la zone n'est disponible pour le vérifier, et même dans ce cas, rien
+ne t'avertira explicitement d'un mot-clé qui ne matche jamais. Pense à vérifier de temps
+en temps sur le site du CROUS si un logement qui te semble pertinent n'a pas déclenché d'alerte.
 
 ## Développement local
 
