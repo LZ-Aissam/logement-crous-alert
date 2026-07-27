@@ -34,11 +34,16 @@ def geocode_city(city: str) -> tuple[float, float]:
         raise GeocodeError(f"network error geocoding {city!r}: {exc}") from exc
     if response.status_code != 200:
         raise GeocodeError(f"unexpected status {response.status_code} geocoding {city!r}")
-    data = response.json()
-    features = data.get("features") or []
-    if not features:
-        raise GeocodeError(f"no municipality found for {city!r}")
-    lon, lat = features[0]["geometry"]["coordinates"]
+    try:
+        data = response.json()
+        features = data.get("features") or []
+        if not features:
+            raise GeocodeError(f"no municipality found for {city!r}")
+        lon, lat = features[0]["geometry"]["coordinates"]
+    except GeocodeError:
+        raise
+    except (ValueError, KeyError, TypeError) as exc:
+        raise GeocodeError(f"unexpected response format geocoding {city!r}: {exc}") from exc
     return lon, lat
 
 

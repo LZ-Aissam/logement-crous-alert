@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 import add_search as mod
@@ -62,6 +60,30 @@ def test_geocode_city_raises_on_network_error(monkeypatch):
         raise mod.requests.ConnectionError("boom")
 
     monkeypatch.setattr(mod.requests, "get", fake_get)
+    with pytest.raises(mod.GeocodeError):
+        mod.geocode_city("Agen")
+
+
+def test_geocode_city_raises_on_non_200_status(monkeypatch):
+    class _FakeResponse:
+        status_code = 500
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(mod.requests, "get", lambda *a, **k: _FakeResponse())
+    with pytest.raises(mod.GeocodeError):
+        mod.geocode_city("Agen")
+
+
+def test_geocode_city_raises_on_malformed_response(monkeypatch):
+    class _FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"features": [{"geometry": {}}]}  # missing "coordinates"
+
+    monkeypatch.setattr(mod.requests, "get", lambda *a, **k: _FakeResponse())
     with pytest.raises(mod.GeocodeError):
         mod.geocode_city("Agen")
 
