@@ -90,6 +90,49 @@ def test_main_keeps_pending_entry_when_other_emails_remain(tmp_path, monkeypatch
     assert list(pending["Agen"]["pending_emails"].values()) == ["b@example.com"]
 
 
+def test_main_does_not_attach_email_to_same_named_different_url_search(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    # An unrelated "Agen" search already exists in searches.json, with a
+    # different URL than the one the pending confirmation was requested for
+    # (e.g. the owner created it by hand, or from a totally different request).
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Agen",
+                    "url": "https://example.com/agen-OTHER",
+                    "emails": ["owner@example.com"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen-PENDING"},
+                    "pending_emails": {hash_token("tok123"): "stranger@example.com"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok123\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    # The pre-existing, unrelated "Agen" entry must be untouched.
+    other = next(s for s in searches if s["url"] == "https://example.com/agen-OTHER")
+    assert other["emails"] == ["owner@example.com"]
+    # A separate entry must have been created for the pending record's own url,
+    # instead of silently appending the stranger's email to the wrong search.
+    matched = next(s for s in searches if s["url"] == "https://example.com/agen-PENDING")
+    assert matched["emails"] == ["stranger@example.com"]
+
+
 def test_main_rejects_unknown_token(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "pending_searches.json").write_text(json.dumps({}), encoding="utf-8")

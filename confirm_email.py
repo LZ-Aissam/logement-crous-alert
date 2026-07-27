@@ -52,11 +52,13 @@ def main() -> int:
         else:
             searches = []
 
+        pending_url = record["search"]["url"]
         existing = next(
             (
                 s
                 for s in searches
                 if s["name"].strip().lower() == search_name.strip().lower()
+                and s["url"] == pending_url
             ),
             None,
         )
