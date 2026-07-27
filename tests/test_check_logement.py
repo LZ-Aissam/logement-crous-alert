@@ -1,3 +1,4 @@
+import json
 import requests
 import pytest
 
@@ -32,3 +33,46 @@ def test_fetch_html_raises_on_network_error(monkeypatch):
     monkeypatch.setattr(mod.requests, "get", fake_get)
     with pytest.raises(mod.SearchFetchError):
         mod.fetch_html("https://example.com/search")
+
+
+def _make_fixture_html(total, items):
+    body_obj = {
+        "results": {
+            "total": {"value": total, "relation": "eq"},
+            "page": 0,
+            "pageSize": 24,
+            "items": items,
+        }
+    }
+    outer = {
+        "status": 200,
+        "statusText": "OK",
+        "headers": {"content-type": "application/json"},
+        "body": json.dumps(body_obj),
+    }
+    return (
+        '<html><body><script type="application/json" data-sveltekit-fetched '
+        f'data-url="/api/fr/search/47" data-hash="abc">{json.dumps(outer)}</script>'
+        "</body></html>"
+    )
+
+
+def test_parse_search_results_extracts_items():
+    html = _make_fixture_html(2, [{"id": 1}, {"id": 2}])
+    results = mod.parse_search_results(html)
+    assert results["total"]["value"] == 2
+    assert [item["id"] for item in results["items"]] == [1, 2]
+
+
+def test_parse_search_results_raises_when_block_missing():
+    with pytest.raises(mod.SearchFetchError):
+        mod.parse_search_results("<html><body>nothing here</body></html>")
+
+
+def test_parse_search_results_raises_on_malformed_json():
+    broken = (
+        '<html><body><script type="application/json" data-sveltekit-fetched '
+        'data-url="/api/fr/search/47" data-hash="abc">{not json}</script></body></html>'
+    )
+    with pytest.raises(mod.SearchFetchError):
+        mod.parse_search_results(broken)

@@ -36,3 +36,23 @@ def fetch_html(url: str) -> str:
             f"unexpected status {response.status_code} fetching {url}"
         )
     return response.text
+
+
+_SCRIPT_RE = re.compile(
+    r'data-url="' + re.escape(SEARCH_DATA_URL) + r'"[^>]*>(\{.*?\})</script>',
+    re.S,
+)
+
+
+def parse_search_results(html: str) -> dict[str, Any]:
+    match = _SCRIPT_RE.search(html)
+    if not match:
+        raise SearchFetchError(
+            f"could not find embedded search data ({SEARCH_DATA_URL}) in page"
+        )
+    try:
+        outer = json.loads(match.group(1))
+        body = json.loads(outer["body"])
+        return body["results"]
+    except (json.JSONDecodeError, KeyError) as exc:
+        raise SearchFetchError(f"could not parse embedded search data: {exc}") from exc
