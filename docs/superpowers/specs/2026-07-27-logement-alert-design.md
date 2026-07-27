@@ -38,16 +38,21 @@ HTML publique avec l'URL fournie par l'utilisateur.
   donnée sensible commitée — seulement des IDs de logements ; les identifiants email
   restent dans les Secrets chiffrés du dépôt).
 - **`searches.json`** (racine du dépôt, versionné, modifiable directement par
-  l'utilisateur sans toucher au code) : liste nommée des recherches à surveiller.
+  l'utilisateur sans toucher au code) : liste nommée des recherches à surveiller, avec
+  pour chacune une liste optionnelle de destinataires email.
   ```json
   [
-    {"name": "Brest",  "url": "https://trouverunlogement.lescrous.fr/tools/47/search?bounds=...&locationName=Brest+%2829200%29"},
-    {"name": "Rennes", "url": "https://trouverunlogement.lescrous.fr/tools/..."}
+    {"name": "Brest",  "url": "https://trouverunlogement.lescrous.fr/tools/47/search?bounds=...&locationName=Brest+%2829200%29",
+     "emails": ["theaissam@gmail.com"]},
+    {"name": "Rennes", "url": "https://trouverunlogement.lescrous.fr/tools/...",
+     "emails": ["theaissam@gmail.com", "ami@example.com"]}
   ]
   ```
   Ajouter/retirer une ville ou un filtre = ajouter/retirer une entrée dans ce fichier
   (l'utilisateur copie l'URL depuis son navigateur après avoir réglé les filtres sur le
-  site). Aucune redéploiement ni modif de code nécessaire.
+  site). Aucune redéploiement ni modif de code nécessaire. Le champ `emails` est
+  optionnel : s'il est absent pour une recherche, on utilise `secrets.ALERT_EMAIL`
+  (destinataire par défaut) comme unique destinataire.
 - **`check_logement.py`** (racine du dépôt) :
   1. Charge `searches.json`.
   2. Charge `seen.json` — dict `{nom_recherche: [ids déjà connus]}` — depuis le dépôt.
@@ -63,10 +68,14 @@ HTML publique avec l'URL fournie par l'utilisateur.
      d. Si une recherche échoue (page injoignable, JSON absent/changé) : log clair sur
         stderr, on continue avec les autres recherches (une recherche cassée ne doit
         pas bloquer les autres), et on ne touche pas à `seen.json[nom]` pour celle-ci.
-  4. S'il y a au moins un nouveau logement toutes recherches confondues : envoie **un
-     seul email** récapitulatif (SMTP Gmail, TLS), organisé par section = nom de la
-     recherche, listant pour chaque nouveau logement : résidence, adresse, libellé
-     (ex. "T1 meublé"), loyer si présent, lien vers la page de recherche concernée.
+  4. Pour chaque recherche ayant au moins un nouveau logement : envoie un email
+     (SMTP Gmail, TLS) aux destinataires de **cette recherche** (`emails` sinon
+     `ALERT_EMAIL` par défaut), listant chaque nouveau logement : résidence, adresse,
+     libellé (ex. "T1 meublé"), loyer si présent, lien vers la page de recherche.
+     Un email est envoyé par recherche concernée (et non un résumé global unique),
+     puisque les destinataires peuvent différer d'une recherche à l'autre ; si
+     plusieurs recherches partagent exactement les mêmes destinataires, elles restent
+     néanmoins envoyées séparément pour garder la logique simple.
   5. Écrit `seen.json` mis à jour (uniquement les recherches qui ont réussi).
   6. Si toutes les recherches échouent : exit code ≠ 0, pas d'email, pas d'écriture de
      `seen.json`.
