@@ -1,0 +1,7 @@
+{
+  "name": "logement-crous-alert-netlify",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"netlify/functions/*.test.js\""
+  }
+}
