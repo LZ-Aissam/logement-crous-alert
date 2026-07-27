@@ -22,21 +22,73 @@ Actions — pas besoin de garder un PC allumé.
    - `ALERT_EMAIL` : l'email destinataire par défaut, utilisé pour toute recherche
      dans `searches.json` qui n'a pas son propre champ `emails`
 
-4. **Éditer `searches.json`** pour ajouter/retirer des recherches. Pour obtenir l'URL
-   d'une recherche : va sur trouverunlogement.lescrous.fr, règle les filtres voulus
-   (ville, type de logement, prix...) dans l'interface, puis copie l'URL de la barre
-   d'adresse. Champ `emails` optionnel (liste de destinataires spécifiques à cette
-   recherche) ; s'il est absent, `ALERT_EMAIL` est utilisé.
+4. **Éditer `searches.json`** pour ajouter/retirer des recherches (ou passer par une
+   Issue GitHub, voir plus bas, si tu préfères ne pas toucher au fichier à la main).
+   Pour obtenir l'URL d'une recherche : va sur trouverunlogement.lescrous.fr, règle les
+   filtres voulus (ville, type de logement, prix...) dans l'interface, puis copie l'URL
+   de la barre d'adresse. Champ `emails` optionnel (liste de destinataires spécifiques à
+   cette recherche) ; s'il est absent, `ALERT_EMAIL` est utilisé.
 
    Attention : au tout premier passage pour une recherche donnée, tous les logements
    actuellement listés seront considérés comme "nouveaux" et déclencheront un email
    immédiatement. Si tu ajoutes une recherche qui a déjà des résultats, attends-toi à
    recevoir un email avec tout le lot dès le premier run — c'est voulu, pas un bug.
 
+   Champ `keywords` optionnel (liste de mots-clés) : si présent, un logement doit être
+   à la fois dans la zone de la recherche ET correspondre à au moins un des mots-clés
+   pour déclencher une alerte (comparaison insensible à la casse, sur le libellé du
+   logement, le nom de la résidence, et l'adresse). Si le champ est absent, tous les
+   logements de la zone déclenchent une alerte comme avant. Exemple :
+
+   ```json
+   [
+     {
+       "name": "Brest Kergoat",
+       "url": "https://trouverunlogement.lescrous.fr/tools/47/search?bounds=...",
+       "keywords": ["Kergoat", "studio"],
+       "emails": ["toi@example.com"]
+     }
+   ]
+   ```
+
+   Ici, une annonce ne déclenchera un email que si elle est dans la zone de Brest ET
+   que "Kergoat" ou "studio" apparaît dans son libellé, le nom de la résidence, ou son
+   adresse.
+
 5. **Activer le workflow** : l'onglet Actions du dépôt doit afficher "Check CROUS
    housing". Il se déclenche automatiquement toutes les ~5 minutes une fois poussé
    sur la branche par défaut. Pour un premier test immédiat sans attendre : onglet
    Actions > "Check CROUS housing" > "Run workflow".
+
+## Ajouter une recherche via une Issue GitHub
+
+Pas envie de modifier `searches.json` à la main ? Tu peux ajouter une nouvelle
+recherche en ouvrant une Issue :
+
+1. Sur la page du dépôt, clique sur "New issue".
+2. Choisis le modèle "Nouvelle recherche de logement".
+3. Remplis les champs :
+   - **Nom de la recherche** : un nom court et unique (ex. "Brest", "Rennes Kergoat").
+   - **Ville** : la ville à surveiller (ex. "Brest" ou "Brest 29200").
+   - **Mots-clés** (optionnel) : séparés par des virgules, voir la section `keywords`
+     ci-dessus.
+   - **Email(s) de notification** (optionnel) : séparés par des virgules ; laisse vide
+     pour utiliser `ALERT_EMAIL`.
+4. Soumets l'issue.
+
+Un bot prend ensuite le relais automatiquement : il géocode la ville, construit l'URL
+de recherche correspondante, l'ajoute à `searches.json`, et commente l'issue avec un
+résumé de ce qui a été créé. Si tout s'est bien passé, l'issue est fermée
+automatiquement. Si quelque chose a coincé (ville introuvable, nom déjà utilisé...), le
+bot commente en expliquant le problème et laisse l'issue ouverte — corrige simplement
+les champs et rouvre une nouvelle issue.
+
+À noter : s'il n'y a actuellement aucun logement disponible dans la ville demandée, le
+bot ne peut pas te proposer de vrais noms de résidences ou de types de logement pour
+vérifier l'orthographe de tes mots-clés. Il crée quand même la recherche normalement,
+juste sans cette vérification — tu ne découvriras une éventuelle faute de frappe dans
+un mot-clé que le jour où un logement correspondant à la zone deviendra disponible et ne
+matchera pas.
 
 ## Développement local
 
