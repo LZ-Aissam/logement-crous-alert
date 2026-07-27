@@ -56,3 +56,16 @@ def parse_search_results(html: str) -> dict[str, Any]:
         return body["results"]
     except (json.JSONDecodeError, KeyError) as exc:
         raise SearchFetchError(f"could not parse embedded search data: {exc}") from exc
+
+
+def load_seen(path: Path = SEEN_PATH) -> dict[str, list[str]]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_seen(seen: dict[str, list[str]], path: Path = SEEN_PATH) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(seen, f, indent=2, sort_keys=True, ensure_ascii=False)
+        f.write("\n")

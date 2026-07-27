@@ -76,3 +76,14 @@ def test_parse_search_results_raises_on_malformed_json():
     )
     with pytest.raises(mod.SearchFetchError):
         mod.parse_search_results(broken)
+
+
+def test_load_seen_returns_empty_dict_when_missing(tmp_path):
+    missing = tmp_path / "seen.json"
+    assert mod.load_seen(missing) == {}
+
+
+def test_save_then_load_seen_round_trips(tmp_path):
+    path = tmp_path / "seen.json"
+    mod.save_seen({"Brest": ["1", "2"]}, path)
+    assert mod.load_seen(path) == {"Brest": ["1", "2"]}
