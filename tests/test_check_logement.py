@@ -87,3 +87,14 @@ def test_save_then_load_seen_round_trips(tmp_path):
     path = tmp_path / "seen.json"
     mod.save_seen({"Brest": ["1", "2"]}, path)
     assert mod.load_seen(path) == {"Brest": ["1", "2"]}
+
+
+def test_load_seen_returns_empty_dict_on_corrupt_json(tmp_path, capsys):
+    path = tmp_path / "seen.json"
+    path.write_text("{not valid json", encoding="utf-8")
+    assert mod.load_seen(path) == {}
+    # Verify error message was printed to stderr
+    captured = capsys.readouterr()
+    assert captured.err
+    assert "corrupt JSON" in captured.err
+    assert str(path) in captured.err

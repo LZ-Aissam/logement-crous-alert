@@ -61,8 +61,15 @@ def parse_search_results(html: str) -> dict[str, Any]:
 def load_seen(path: Path = SEEN_PATH) -> dict[str, list[str]]:
     if not path.exists():
         return {}
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as exc:
+        print(
+            f"error: corrupt JSON in {path}, falling back to empty state: {exc}",
+            file=sys.stderr,
+        )
+        return {}
 
 
 def save_seen(seen: dict[str, list[str]], path: Path = SEEN_PATH) -> None:
