@@ -1,6 +1,7 @@
 import json
 
 import pytest
+import yaml
 
 import add_search as mod
 import check_logement as clog
@@ -262,3 +263,52 @@ def test_main_requires_name_and_city(monkeypatch):
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     assert mod.main() == 1
+
+
+def test_field_label_constants_match_issue_form_yaml():
+    with open(".github/ISSUE_TEMPLATE/new-search.yml", encoding="utf-8") as f:
+        form = yaml.safe_load(f)
+    labels_by_id = {
+        field["id"]: field["attributes"]["label"] for field in form["body"]
+    }
+    assert labels_by_id["name"] == mod.FIELD_NAME
+    assert labels_by_id["city"] == mod.FIELD_CITY
+    assert labels_by_id["keywords"] == mod.FIELD_KEYWORDS
+    assert labels_by_id["emails"] == mod.FIELD_EMAILS
+
+
+def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\npas-un-email\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert json.loads((tmp_path / "searches.json").read_text(encoding="utf-8")) == []
+
+
+def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    assert mod.main() == 0
+
+    loaded = clog.load_searches()
+    assert loaded == [{"name": "Agen", "url": loaded[0]["url"]}]

@@ -76,6 +76,11 @@ recherche en ouvrant une Issue :
      pour utiliser `ALERT_EMAIL`.
 4. Soumets l'issue.
 
+À noter : la zone de recherche créée via ce formulaire a une **taille fixe** (environ
+11 km × 10 km) centrée sur la ville. Pour une très grande ville (Paris, Lyon,
+Marseille...), cette zone peut ne pas couvrir toute l'agglomération — le `bounds` de
+l'URL générée peut être élargi à la main dans `searches.json` par la suite si besoin.
+
 Un bot prend ensuite le relais automatiquement : il géocode la ville, construit l'URL
 de recherche correspondante, l'ajoute à `searches.json`, et commente l'issue avec un
 résumé de ce qui a été créé. Si tout s'est bien passé, l'issue est fermée

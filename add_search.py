@@ -23,6 +23,13 @@ DEFAULT_HALF_LON_SPAN = 0.0705
 
 TOOL_ID = 47
 
+FIELD_NAME = "Nom de la recherche"
+FIELD_CITY = "Ville"
+FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel"
+FIELD_EMAILS = "Email(s) de notification - optionnel"
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 class GeocodeError(Exception):
     """Raised when a city cannot be geocoded."""
@@ -102,10 +109,10 @@ def main() -> int:
     issue_body = os.environ.get("ISSUE_BODY", "")
     fields = parse_issue_form_body(issue_body)
 
-    name = fields.get("Nom de la recherche")
-    city = fields.get("Ville")
-    keywords_raw = fields.get("Mots-clés (résidence, type de logement...) - optionnel")
-    emails_raw = fields.get("Email(s) de notification - optionnel")
+    name = fields.get(FIELD_NAME)
+    city = fields.get(FIELD_CITY)
+    keywords_raw = fields.get(FIELD_KEYWORDS)
+    emails_raw = fields.get(FIELD_EMAILS)
 
     if not name or not city:
         print("ERROR: le nom de la recherche et la ville sont obligatoires")
@@ -133,6 +140,11 @@ def main() -> int:
     url = build_search_url(lon, lat, city)
     keywords = _split_csv(keywords_raw)
     emails = _split_csv(emails_raw)
+
+    invalid_emails = [e for e in emails if not EMAIL_RE.match(e)]
+    if invalid_emails:
+        print(f"ERROR: adresse(s) email invalide(s) : {', '.join(invalid_emails)}")
+        return 1
 
     try:
         html = clog.fetch_html(url)
