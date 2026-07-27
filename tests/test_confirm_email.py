@@ -100,10 +100,23 @@ def test_main_rejects_unknown_token(tmp_path, monkeypatch):
     assert exit_code == 1
 
 
-def test_main_requires_code(monkeypatch):
+def test_main_requires_code(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\n_No response_\n")
 
     assert mod.main() == 1
+
+
+def test_main_aborts_on_invalid_existing_pending_searches_json(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    original_content = '{"not": "valid pending data"'
+    (tmp_path / "pending_searches.json").write_text(original_content, encoding="utf-8")
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok123\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert (tmp_path / "pending_searches.json").read_text(encoding="utf-8") == original_content
 
 
 def test_confirmation_requires_original_token_not_stored_hash(tmp_path, monkeypatch):

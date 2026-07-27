@@ -7,6 +7,7 @@ import sys
 
 import check_logement as clog
 from add_search import (
+    PENDING_SEARCHES_PATH,
     hash_token,
     load_pending_searches,
     parse_issue_form_body,
@@ -25,7 +26,14 @@ def main() -> int:
         print("ERROR: code de confirmation manquant")
         return 1
 
-    pending = load_pending_searches()
+    if PENDING_SEARCHES_PATH.exists():
+        try:
+            pending = load_pending_searches()
+        except (ValueError, json.JSONDecodeError, OSError) as exc:
+            print(f"ERROR: impossible de lire pending_searches.json existant : {exc}")
+            return 1
+    else:
+        pending = {}
     code_hash = hash_token(code)
 
     for search_name, record in pending.items():

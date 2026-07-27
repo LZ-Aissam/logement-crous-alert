@@ -254,7 +254,8 @@ def test_main_still_succeeds_when_discovery_fetch_fails(tmp_path, monkeypatch, c
     assert "Aucun logement disponible actuellement dans cette zone" in out
 
 
-def test_main_requires_name_and_city(monkeypatch):
+def test_main_requires_name_and_city(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     body = (
         "### Nom de la recherche\n\n_No response_\n\n"
         "### Ville\n\n_No response_\n\n"
