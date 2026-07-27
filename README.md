@@ -96,6 +96,31 @@ qu'aucun logement de la zone n'est disponible pour le vérifier, et même dans c
 ne t'avertira explicitement d'un mot-clé qui ne matche jamais. Pense à vérifier de temps
 en temps sur le site du CROUS si un logement qui te semble pertinent n'a pas déclenché d'alerte.
 
+### Confirmation d'email obligatoire
+
+Si tu renseignes une ou plusieurs adresses dans le champ **Email(s) de notification**,
+la recherche n'est **pas activée tout de suite**. Elle est créée **en attente**
+(stockée dans `pending_searches.json`, pas encore dans `searches.json`) et n'envoie
+aucune alerte pour l'instant.
+
+Un email de confirmation est envoyé à chaque adresse renseignée, avec un lien vers un
+second formulaire ("Confirmer mon email"). Ce lien ouvre une nouvelle Issue
+pré-remplie avec un code de confirmation unique ; soumettre cette issue nécessite un
+compte GitHub (gratuit).
+
+Dès qu'**une seule** des adresses confirme, la recherche devient active dans
+`searches.json`, avec cette adresse comme destinataire. Les autres adresses peuvent
+confirmer plus tard, chacune depuis son propre lien, et sont ajoutées à la liste des
+destinataires au fur et à mesure.
+
+Si le champ email est laissé vide, la recherche est activée immédiatement avec
+`ALERT_EMAIL` comme destinataire — pas de confirmation nécessaire dans ce cas, puisque
+c'est l'adresse du propriétaire du dépôt lui-même.
+
+Cette étape existe pour une seule raison : empêcher que quelqu'un renseigne l'adresse
+email d'un inconnu et lui fasse recevoir, sans son accord, des emails automatiques
+depuis le compte Gmail du propriétaire du dépôt.
+
 ## Développement local
 
 ```bash
