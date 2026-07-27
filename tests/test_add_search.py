@@ -1,6 +1,9 @@
+import json
+
 import pytest
 
 import add_search as mod
+import check_logement as clog
 
 
 def test_parse_issue_form_body_all_fields_filled():
@@ -107,3 +110,113 @@ def test_discover_filters_returns_distinct_sorted_names():
 
 def test_discover_filters_empty_items_returns_empty_lists():
     assert mod.discover_filters([]) == ([], [])
+
+
+def test_main_adds_search_successfully(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\nKergoat\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        clog,
+        "parse_search_results",
+        lambda html: {"items": [{"label": "T1", "residence": {"label": "Kergoat"}}]},
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert len(searches) == 1
+    assert searches[0]["name"] == "Agen"
+    assert searches[0]["keywords"] == ["Kergoat"]
+    assert "url" in searches[0]
+    assert "emails" not in searches[0]
+    out = capsys.readouterr().out
+    assert "OK" in out
+
+
+def test_main_rejects_duplicate_name(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com"}]), encoding="utf-8"
+    )
+    body = (
+        "### Nom de la recherche\n\nbrest\n\n"
+        "### Ville\n\nBrest\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert len(searches) == 1
+
+
+def test_main_reports_error_when_city_not_found(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nTest\n\n"
+        "### Ville\n\nVilleInexistante\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(
+        mod, "geocode_city", lambda city: (_ for _ in ()).throw(mod.GeocodeError("not found"))
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert searches == []
+
+
+def test_main_warns_when_keyword_not_found_but_still_adds(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\nTypo123\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        clog,
+        "parse_search_results",
+        lambda html: {"items": [{"label": "T1", "residence": {"label": "Kergoat"}}]},
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert len(searches) == 1
+    out = capsys.readouterr().out
+    assert "Typo123" in out
+
+
+def test_main_requires_name_and_city(monkeypatch):
+    body = (
+        "### Nom de la recherche\n\n_No response_\n\n"
+        "### Ville\n\n_No response_\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    assert mod.main() == 1

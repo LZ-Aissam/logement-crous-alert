@@ -1,11 +1,16 @@
 """Process a GitHub Issue Form submission to add a new search to searches.json."""
 from __future__ import annotations
 
+import json
+import os
 import re
+import sys
 import urllib.parse
 from typing import Any
 
 import requests
+
+import check_logement as clog
 
 GEOCODE_URL = "https://api-adresse.data.gouv.fr/search/"
 GEOCODE_TIMEOUT = 20
@@ -85,3 +90,96 @@ def discover_filters(items: list[dict[str, Any]]) -> tuple[list[str], list[str]]
     )
     labels = sorted({item.get("label") for item in items if item.get("label")})
     return residences, labels
+
+
+def _split_csv(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def main() -> int:
+    issue_body = os.environ.get("ISSUE_BODY", "")
+    fields = parse_issue_form_body(issue_body)
+
+    name = fields.get("Nom de la recherche")
+    city = fields.get("Ville")
+    keywords_raw = fields.get("Mots-clés (résidence, type de logement...) - optionnel")
+    emails_raw = fields.get("Email(s) de notification - optionnel")
+
+    if not name or not city:
+        print("ERROR: le nom de la recherche et la ville sont obligatoires")
+        return 1
+
+    try:
+        searches = clog.load_searches()
+    except (ValueError, json.JSONDecodeError, OSError):
+        searches = []
+
+    if any(s["name"].strip().lower() == name.strip().lower() for s in searches):
+        print(f"ERROR: une recherche nommee {name!r} existe deja dans searches.json")
+        return 1
+
+    try:
+        lon, lat = geocode_city(city)
+    except GeocodeError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+
+    url = build_search_url(lon, lat, city)
+    keywords = _split_csv(keywords_raw)
+    emails = _split_csv(emails_raw)
+
+    try:
+        html = clog.fetch_html(url)
+        results = clog.parse_search_results(html)
+        items = results.get("items") or []
+    except clog.SearchFetchError:
+        items = []
+
+    residences, labels = discover_filters(items)
+
+    discovered = [r.lower() for r in residences] + [l.lower() for l in labels]
+    warnings = [
+        kw for kw in keywords if discovered and not any(kw.lower() in d for d in discovered)
+    ]
+
+    entry: dict[str, Any] = {"name": name, "url": url}
+    if keywords:
+        entry["keywords"] = keywords
+    if emails:
+        entry["emails"] = emails
+
+    searches.append(entry)
+    clog.save_searches(searches)
+
+    lines = [f"OK: recherche {name!r} ajoutee pour {city!r}.", f"URL : {url}"]
+    if keywords:
+        lines.append(f"Mots-cles : {', '.join(keywords)}")
+    if warnings:
+        lines.append(
+            "AVERTISSEMENT: ces mots-cles ne correspondent a rien de disponible "
+            f"actuellement (peut etre normal si rien n'est libre en ce moment) : "
+            f"{', '.join(warnings)}"
+        )
+    if residences or labels:
+        lines.append(
+            "Residences/types actuellement disponibles dans cette zone (pour verifier "
+            f"l'orthographe) : residences={residences or '(aucune)'}, "
+            f"types={labels or '(aucun)'}"
+        )
+    else:
+        lines.append(
+            "Aucun logement disponible actuellement dans cette zone : impossible de "
+            "suggerer une liste de residences/types pour l'instant."
+        )
+    lines.append(
+        f"Destinataires : {', '.join(emails)}" if emails else "Destinataire : email par defaut (ALERT_EMAIL)"
+    )
+
+    print("\n".join(lines))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
