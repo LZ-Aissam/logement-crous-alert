@@ -1,0 +1,12 @@
+name: Confirmer mon email
+description: Confirme que tu acceptes de recevoir des alertes logement a cette adresse
+title: "[Confirmation email]"
+labels: ["confirm-email"]
+body:
+  - type: input
+    id: code
+    attributes:
+      label: Code de confirmation
+      description: Le code fourni dans l'email de confirmation que tu as recu
+    validations:
+      required: true
