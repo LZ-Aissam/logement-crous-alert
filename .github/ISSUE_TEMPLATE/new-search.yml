@@ -1,0 +1,40 @@
+name: Nouvelle recherche de logement
+description: Ajoute une nouvelle recherche CROUS a surveiller (ville + filtres optionnels)
+title: "[Nouvelle recherche] "
+labels: ["new-search"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Nom de la recherche
+      description: Un nom court et unique pour identifier cette recherche (ex. "Brest", "Rennes Kergoat")
+      placeholder: Brest
+    validations:
+      required: true
+  - type: input
+    id: city
+    attributes:
+      label: Ville
+      description: Ville (et code postal si tu veux etre precis), ex. "Brest" ou "Brest 29200"
+      placeholder: Brest 29200
+    validations:
+      required: true
+  - type: input
+    id: keywords
+    attributes:
+      label: Mots-clés (résidence, type de logement...) - optionnel
+      description: >-
+        Separes par des virgules (ex. "Kergoat, studio, chambre grand confort").
+        Un logement doit correspondre a au moins un mot-cle pour declencher une alerte.
+        Laisse vide pour recevoir toutes les annonces de cette ville.
+      placeholder: Kergoat, studio
+    validations:
+      required: false
+  - type: input
+    id: emails
+    attributes:
+      label: Email(s) de notification - optionnel
+      description: Separes par des virgules. Laisse vide pour utiliser l'email par defaut.
+      placeholder: toi@example.com
+    validations:
+      required: false
