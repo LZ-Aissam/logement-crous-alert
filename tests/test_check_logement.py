@@ -162,11 +162,14 @@ def test_load_searches_rejects_top_level_object(tmp_path):
 
 
 def test_format_email_body_includes_listing_details():
+    # occupationModes[].rent (cents) is the real monthly rent, verified against the
+    # live site: a real Agen listing had rent.min == rent.max == 41555 (415,55 EUR/mois)
+    # matching exactly what the site's own listing page displayed as "Individuel".
     new_items = [
         {
             "label": "T1 meuble",
             "residence": {"label": "Residence Foo", "address": "1 rue Test, 29200 Brest"},
-            "bookingData": {"amount": 25000},
+            "occupationModes": [{"type": "alone", "rent": {"min": 25000, "max": 25000}}],
         }
     ]
     body = mod.format_email_body("Brest", new_items, "https://example.com/search")
@@ -178,6 +181,34 @@ def test_format_email_body_includes_listing_details():
     assert "https://example.com/search" in body
 
 
+def test_format_email_body_handles_rent_range():
+    new_items = [
+        {
+            "label": "T1",
+            "residence": {"label": "R", "address": "A"},
+            "occupationModes": [{"type": "alone", "rent": {"min": 25000, "max": 27000}}],
+        }
+    ]
+    body = mod.format_email_body("Brest", new_items, "https://example.com/search")
+    assert "250.00 - 270.00 EUR/mois" in body
+
+
+def test_format_email_body_ignores_booking_data_deposit_not_rent():
+    # bookingData.amount is the deductible advance on the first month's rent (a
+    # deposit-like figure), NOT the monthly rent -- it must never be shown as "loyer".
+    new_items = [
+        {
+            "label": "T1",
+            "residence": {"label": "R", "address": "A"},
+            "bookingData": {"amount": 7000},
+            "occupationModes": [{"type": "alone", "rent": {"min": 41555, "max": 41555}}],
+        }
+    ]
+    body = mod.format_email_body("Brest", new_items, "https://example.com/search")
+    assert "415.55" in body
+    assert "70.00" not in body
+
+
 def test_format_email_body_handles_missing_rent():
     new_items = [{"label": "Chambre", "residence": {"label": "R", "address": "A"}}]
     body = mod.format_email_body("Brest", new_items, "https://example.com/search")
@@ -185,9 +216,9 @@ def test_format_email_body_handles_missing_rent():
 
 
 def test_format_email_body_handles_null_residence_and_booking_data():
-    # residence/bookingData keys are present but explicitly null (JSON null -> None),
-    # not merely absent -- must not raise AttributeError from calling .get() on None.
-    new_items = [{"label": "T1", "residence": None, "bookingData": None}]
+    # residence key is present but explicitly null (JSON null -> None), not merely
+    # absent -- must not raise AttributeError from calling .get() on None.
+    new_items = [{"label": "T1", "residence": None, "occupationModes": None}]
     body = mod.format_email_body("Brest", new_items, "https://example.com/search")
     assert "T1" in body
     assert "non pr" in body  # "loyer non précisé" fallback for missing rent

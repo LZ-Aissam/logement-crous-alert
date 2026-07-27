@@ -109,6 +109,24 @@ def load_searches(path: Path = SEARCHES_PATH) -> list[dict[str, Any]]:
     return searches
 
 
+def _format_rent(item: dict[str, Any]) -> str:
+    # The monthly rent lives in occupationModes[].rent (cents), not bookingData.amount
+    # -- bookingData.amount is the deductible advance on the first month's rent, a
+    # different, smaller figure that was mistakenly displayed as "the rent" before.
+    modes = item.get("occupationModes") or []
+    mode = next((m for m in modes if m.get("type") == "alone"), None)
+    if mode is None and modes:
+        mode = modes[0]
+    rent = (mode or {}).get("rent") or {}
+    rent_min = rent.get("min")
+    rent_max = rent.get("max")
+    if rent_min is None:
+        return "loyer non precise"
+    if rent_max is not None and rent_max != rent_min:
+        return f"{rent_min / 100:.2f} - {rent_max / 100:.2f} EUR/mois"
+    return f"{rent_min / 100:.2f} EUR/mois"
+
+
 def format_email_body(
     search_name: str, new_items: list[dict[str, Any]], search_url: str
 ) -> str:
@@ -120,8 +138,7 @@ def format_email_body(
         residence = item.get("residence") or {}
         label = item.get("label", "(sans libelle)")
         address = residence.get("address", "(adresse inconnue)")
-        amount = (item.get("bookingData") or {}).get("amount")
-        rent_str = f"{amount / 100:.2f} EUR/mois" if amount is not None else "loyer non precise"
+        rent_str = _format_rent(item)
         lines.append(f"- {label} - {residence.get('label', '')} - {address} - {rent_str}")
     lines.append("")
     lines.append(f"Voir la recherche : {search_url}")
