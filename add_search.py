@@ -164,7 +164,14 @@ def main() -> int:
     else:
         searches = []
 
-    pending = load_pending_searches()
+    if PENDING_SEARCHES_PATH.exists():
+        try:
+            pending = load_pending_searches()
+        except (ValueError, json.JSONDecodeError, OSError) as exc:
+            print(f"ERROR: impossible de lire pending_searches.json existant : {exc}")
+            return 1
+    else:
+        pending = {}
     existing_names = {s["name"].strip().lower() for s in searches} | {
         n.strip().lower() for n in pending
     }
@@ -230,18 +237,29 @@ def main() -> int:
         smtp_user = clog._require_env("GMAIL_ADDRESS")
         smtp_password = clog._require_env("GMAIL_APP_PASSWORD")
         pending_emails: dict[str, str] = {}
+        failed_emails: list[str] = []
         for email in emails:
             token = secrets.token_urlsafe(16)
-            pending_emails[token] = email
             confirmation_url = build_confirmation_url(token)
             confirmation_body = build_confirmation_email_body(name, confirmation_url)
-            clog.send_email(
-                subject=f"Confirme ton adresse pour la recherche {name!r}",
-                body=confirmation_body,
-                to_addrs=[email],
-                smtp_user=smtp_user,
-                smtp_password=smtp_password,
-            )
+            try:
+                clog.send_email(
+                    subject=f"Confirme ton adresse pour la recherche {name!r}",
+                    body=confirmation_body,
+                    to_addrs=[email],
+                    smtp_user=smtp_user,
+                    smtp_password=smtp_password,
+                )
+            except Exception as exc:
+                print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")
+                failed_emails.append(email)
+                continue
+            pending_emails[token] = email
+
+        if not pending_emails:
+            print(f"ERROR: aucun email de confirmation n'a pu etre envoye pour {name!r}")
+            return 1
+
         pending[name] = {"search": entry, "pending_emails": pending_emails}
         save_pending_searches(pending)
         lines.insert(
@@ -249,10 +267,15 @@ def main() -> int:
             f"OK: recherche {name!r} creee EN ATTENTE de confirmation email pour {city!r}.",
         )
         lines.append(
-            f"Email(s) en attente de confirmation : {', '.join(emails)}. Un email de "
-            "confirmation a ete envoye a chaque adresse. La recherche ne sera active "
-            "qu'une fois qu'au moins un email aura confirme."
+            f"Email(s) en attente de confirmation : {', '.join(pending_emails.values())}. Un "
+            "email de confirmation a ete envoye a chaque adresse. La recherche ne sera "
+            "active qu'une fois qu'au moins un email aura confirme."
         )
+        if failed_emails:
+            lines.append(
+                f"AVERTISSEMENT: echec d'envoi pour : {', '.join(failed_emails)} "
+                "(resoumets une nouvelle issue pour ces adresses si besoin)"
+            )
     else:
         searches.append(entry)
         clog.save_searches(searches)

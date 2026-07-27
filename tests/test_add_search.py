@@ -400,6 +400,57 @@ def test_main_requires_gmail_env_when_email_submitted(tmp_path, monkeypatch):
         mod.main()
 
 
+def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\na@example.com, b@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    def fake_send_email(subject, body, to_addrs, smtp_user, smtp_password):
+        if to_addrs == ["a@example.com"]:
+            raise Exception("smtp boom")
+
+    monkeypatch.setattr(clog, "send_email", fake_send_email)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert list(pending["Agen"]["pending_emails"].values()) == ["b@example.com"]
+    out = capsys.readouterr().out
+    assert "a@example.com" in out
+
+
+def test_main_aborts_on_invalid_existing_pending_searches_json(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    original_content = '{"not": "valid pending data"'
+    (tmp_path / "pending_searches.json").write_text(original_content, encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert (tmp_path / "pending_searches.json").read_text(encoding="utf-8") == original_content
+
+
 def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
