@@ -76,3 +76,12 @@ def save_seen(seen: dict[str, list[str]], path: Path = SEEN_PATH) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(seen, f, indent=2, sort_keys=True, ensure_ascii=False)
         f.write("\n")
+
+
+def find_new_items(
+    items: list[dict[str, Any]], seen_ids: list[str]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    seen_set = set(seen_ids)
+    new_items = [item for item in items if str(item["id"]) not in seen_set]
+    all_ids = sorted({str(item["id"]) for item in items})
+    return new_items, all_ids

@@ -98,3 +98,23 @@ def test_load_seen_returns_empty_dict_on_corrupt_json(tmp_path, capsys):
     assert captured.err
     assert "corrupt JSON" in captured.err
     assert str(path) in captured.err
+
+
+def test_find_new_items_first_run_all_new():
+    items = [{"id": 1}, {"id": 2}]
+    new_items, all_ids = mod.find_new_items(items, [])
+    assert new_items == items
+    assert all_ids == ["1", "2"]
+
+
+def test_find_new_items_only_returns_unseen():
+    items = [{"id": 1}, {"id": 2}, {"id": 3}]
+    new_items, all_ids = mod.find_new_items(items, ["1", "2"])
+    assert new_items == [{"id": 3}]
+    assert all_ids == ["1", "2", "3"]
+
+
+def test_find_new_items_no_items_no_new():
+    new_items, all_ids = mod.find_new_items([], ["1"])
+    assert new_items == []
+    assert all_ids == []
