@@ -165,3 +165,49 @@ def test_format_email_body_handles_missing_rent():
     new_items = [{"label": "Chambre", "residence": {"label": "R", "address": "A"}}]
     body = mod.format_email_body("Brest", new_items, "https://example.com/search")
     assert "non pr" in body  # "loyer non précisé"
+
+
+class _FakeSMTP:
+    instances = []
+
+    def __init__(self, host, port, timeout=None):
+        self.host = host
+        self.port = port
+        self.logged_in = None
+        self.sent = None
+        _FakeSMTP.instances.append(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def login(self, user, password):
+        self.logged_in = (user, password)
+
+    def sendmail(self, from_addr, to_addrs, msg):
+        self.sent = (from_addr, to_addrs, msg)
+
+
+def test_send_email_logs_in_and_sends(monkeypatch):
+    _FakeSMTP.instances.clear()
+    monkeypatch.setattr(mod.smtplib, "SMTP_SSL", _FakeSMTP)
+
+    mod.send_email(
+        subject="Subject",
+        body="Body text",
+        to_addrs=["a@example.com", "b@example.com"],
+        smtp_user="me@gmail.com",
+        smtp_password="app-password",
+    )
+
+    smtp = _FakeSMTP.instances[0]
+    assert smtp.host == "smtp.gmail.com"
+    assert smtp.port == 465
+    assert smtp.logged_in == ("me@gmail.com", "app-password")
+    from_addr, to_addrs, msg = smtp.sent
+    assert from_addr == "me@gmail.com"
+    assert to_addrs == ["a@example.com", "b@example.com"]
+    assert "Subject" in msg
+    assert "Body text" in msg

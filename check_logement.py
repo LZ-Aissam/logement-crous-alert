@@ -113,3 +113,15 @@ def format_email_body(
     lines.append("")
     lines.append(f"Voir la recherche : {search_url}")
     return "\n".join(lines)
+
+
+def send_email(
+    subject: str, body: str, to_addrs: list[str], smtp_user: str, smtp_password: str
+) -> None:
+    msg = MIMEText(body, "plain")
+    msg["Subject"] = subject
+    msg["From"] = smtp_user
+    msg["To"] = ", ".join(to_addrs)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=FETCH_TIMEOUT) as server:
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_user, to_addrs, msg.as_string())
