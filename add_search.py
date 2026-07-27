@@ -194,6 +194,18 @@ def main() -> int:
     keywords = _split_csv(keywords_raw)
     emails = _split_csv(emails_raw)
 
+    seen_lower = set()
+    deduped_emails = []
+    for e in emails:
+        if e.lower() not in seen_lower:
+            seen_lower.add(e.lower())
+            deduped_emails.append(e)
+    emails = deduped_emails
+
+    if len(emails) > 3:
+        print(f"ERROR: trop d'adresses email soumises (max 3, recu {len(emails)})")
+        return 1
+
     invalid_emails = [e for e in emails if not EMAIL_RE.match(e)]
     if invalid_emails:
         print(f"ERROR: adresse(s) email invalide(s) : {', '.join(invalid_emails)}")
