@@ -94,3 +94,22 @@ def load_searches(path: Path = SEARCHES_PATH) -> list[dict[str, Any]]:
         if "name" not in search or "url" not in search:
             raise ValueError(f"invalid search entry, missing name/url: {search}")
     return searches
+
+
+def format_email_body(
+    search_name: str, new_items: list[dict[str, Any]], search_url: str
+) -> str:
+    lines = [
+        f'{len(new_items)} nouveau(x) logement(s) pour la recherche "{search_name}" :',
+        "",
+    ]
+    for item in new_items:
+        residence = item.get("residence", {})
+        label = item.get("label", "(sans libelle)")
+        address = residence.get("address", "(adresse inconnue)")
+        amount = item.get("bookingData", {}).get("amount")
+        rent_str = f"{amount / 100:.2f} EUR/mois" if amount is not None else "loyer non precise"
+        lines.append(f"- {label} - {residence.get('label', '')} - {address} - {rent_str}")
+    lines.append("")
+    lines.append(f"Voir la recherche : {search_url}")
+    return "\n".join(lines)

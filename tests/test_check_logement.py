@@ -142,3 +142,26 @@ def test_load_searches_rejects_entry_missing_url(tmp_path):
     path.write_text(json.dumps([{"name": "Brest"}]), encoding="utf-8")
     with pytest.raises(ValueError):
         mod.load_searches(path)
+
+
+def test_format_email_body_includes_listing_details():
+    new_items = [
+        {
+            "label": "T1 meuble",
+            "residence": {"label": "Residence Foo", "address": "1 rue Test, 29200 Brest"},
+            "bookingData": {"amount": 25000},
+        }
+    ]
+    body = mod.format_email_body("Brest", new_items, "https://example.com/search")
+    assert "Brest" in body
+    assert "T1 meuble" in body
+    assert "Residence Foo" in body
+    assert "1 rue Test, 29200 Brest" in body
+    assert "250.00" in body
+    assert "https://example.com/search" in body
+
+
+def test_format_email_body_handles_missing_rent():
+    new_items = [{"label": "Chambre", "residence": {"label": "R", "address": "A"}}]
+    body = mod.format_email_body("Brest", new_items, "https://example.com/search")
+    assert "non pr" in body  # "loyer non précisé"
