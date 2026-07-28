@@ -1032,6 +1032,48 @@ def test_same_criteria_but_different_email_is_allowed(monkeypatch, tmp_path):
     assert mod.main() == 0
 
 
+def test_same_email_and_same_criteria_is_refused_when_pending(monkeypatch, tmp_path):
+    # Same scenario as test_same_email_and_same_criteria_is_refused, but the matching
+    # criteria/email pair lives in pending_searches.json instead of searches.json --
+    # exercises the second duplicate-check branch (record.get("search", {}).get(
+    # "criteria") + record["pending_emails"].values()), which no other test reaches.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Deja en attente": {
+                    "search": {
+                        "name": "Deja en attente",
+                        "url": "https://example.test/search",
+                        "criteria": {
+                            "extent": "-1.75_48.16_-1.61_48.05",
+                            "city": "rennes",
+                            "maxPrice": None,
+                            "minArea": None,
+                            "occupationModes": [],
+                            "prm": False,
+                        },
+                    },
+                    "pending_emails": {"somehash": "a@example.com"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nAutre nom\n\n"
+        "### Ville\n\nRennes\n\n"
+        "### Email de notification\n\na@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-1.75_48.16_-1.61_48.05\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    assert mod.main() == 1
+
+
 def test_pending_searches_path_derives_from_check_logement_data_dir(monkeypatch):
     monkeypatch.setenv("DATA_DIR", "data")
     import importlib
