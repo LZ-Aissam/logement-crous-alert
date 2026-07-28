@@ -1,6 +1,11 @@
 "use strict";
 
 const { isHoneypotFilled, createRateLimiter, createGithubIssue, clientIp } = require("./_github");
+const { verifyTurnstile } = require("./_turnstile");
+const { readDataFile } = require("./_data-repo");
+const { buildCriteria, findDuplicate } = require("./_criteria");
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const MAX_REQUESTS_PER_WINDOW = 5;
 const WINDOW_MS = 60 * 60 * 1000;
@@ -51,10 +56,19 @@ async function handler(event) {
     return { statusCode: 200, body: JSON.stringify({ issueUrl: null }) };
   }
 
-  if (rateLimiter.isRateLimited(clientIp(event))) {
+  const ip = clientIp(event);
+
+  if (rateLimiter.isRateLimited(ip)) {
     return {
       statusCode: 429,
       body: JSON.stringify({ error: "Trop de tentatives, reessaie dans une heure." }),
+    };
+  }
+
+  if (!(await verifyTurnstile(fields.turnstileToken, ip))) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Verification anti-robot echouee, recharge la page et reessaie." }),
     };
   }
 
@@ -62,6 +76,26 @@ async function handler(event) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: "Le nom de la recherche et la ville sont obligatoires." }),
+    };
+  }
+
+  const email = (fields.emails || "").trim();
+  if (!email) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "L'email de notification est obligatoire." }),
+    };
+  }
+  if (email.includes(",")) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Une seule adresse email par recherche." }),
+    };
+  }
+  if (!EMAIL_RE.test(email)) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Cette adresse email n'est pas valide." }),
     };
   }
 
@@ -77,6 +111,29 @@ async function handler(event) {
       statusCode: 400,
       body: JSON.stringify({ error: "La surface minimum doit etre un nombre." }),
     };
+  }
+
+  try {
+    const [searches, pending] = await Promise.all([
+      readDataFile("searches.json", []),
+      readDataFile("pending_searches.json", {}),
+    ]);
+    const duplicate = findDuplicate({
+      searches,
+      pending,
+      email,
+      criteria: buildCriteria(fields),
+    });
+    if (duplicate) {
+      return {
+        statusCode: 409,
+        body: JSON.stringify({ error: "Tu es deja abonne a cette recherche avec cette adresse." }),
+      };
+    }
+  } catch (err) {
+    // Fail open: a data-repo outage must not block every new subscription.
+    // add_search.py re-runs this check and has the final say.
+    console.error("create-search: duplicate check skipped", err);
   }
 
   try {
