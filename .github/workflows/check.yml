@@ -19,6 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/checkout@v4
+        with:
+          repository: LZ-Aissam/logement-crous-alert-data
+          token: ${{ secrets.DATA_REPO_PAT }}
+          path: data
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -34,13 +40,14 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
           UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           UNSUBSCRIBE_BASE_URL: ${{ secrets.UNSUBSCRIBE_BASE_URL }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          DATA_DIR: data
 
       - name: Commit updated seen.json
         if: always()
+        working-directory: data
         run: |
           git config user.name "logement-alert-bot"
           git config user.email "actions@users.noreply.github.com"

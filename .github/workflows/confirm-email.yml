@@ -19,6 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/checkout@v4
+        with:
+          repository: LZ-Aissam/logement-crous-alert-data
+          token: ${{ secrets.DATA_REPO_PAT }}
+          path: data
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -30,6 +36,7 @@ jobs:
         id: process
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
+          DATA_DIR: data
         run: |
           if python confirm_email.py > result.txt 2>&1; then
             echo "success=true" >> "$GITHUB_OUTPUT"
@@ -48,6 +55,7 @@ jobs:
       - name: Commit and push data files
         id: persist
         if: steps.process.outputs.success == 'true'
+        working-directory: data
         run: |
           git config user.name "logement-alert-bot"
           git config user.email "actions@users.noreply.github.com"
