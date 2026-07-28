@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -303,6 +304,21 @@ def test_field_label_constants_match_issue_form_yaml():
     assert labels_by_id["city"] == mod.FIELD_CITY
     assert labels_by_id["keywords"] == mod.FIELD_KEYWORDS
     assert labels_by_id["emails"] == mod.FIELD_EMAILS
+
+
+def test_js_field_labels_match_python_constants():
+    js_source = Path("netlify/functions/create-search.js").read_text(encoding="utf-8")
+    assert f'const FIELD_NAME = "{mod.FIELD_NAME}";' in js_source
+    assert f'const FIELD_CITY = "{mod.FIELD_CITY}";' in js_source
+    assert f'const FIELD_KEYWORDS = "{mod.FIELD_KEYWORDS}";' in js_source
+    assert f'const FIELD_EMAILS = "{mod.FIELD_EMAILS}";' in js_source
+
+
+def test_js_confirm_code_label_matches_python_constant():
+    from confirm_email import FIELD_CODE
+
+    js_source = Path("netlify/functions/confirm-email.js").read_text(encoding="utf-8")
+    assert f"### {FIELD_CODE}" in js_source
 
 
 def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
