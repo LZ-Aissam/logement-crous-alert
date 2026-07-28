@@ -67,14 +67,21 @@ test("rejects an empty token without calling Cloudflare", async (t) => {
 test("rejects when the Cloudflare API is unreachable", async (t) => {
   withSecret(t, "sec");
   const originalFetch = global.fetch;
+  const originalError = console.error;
+  let errorCalled = false;
   global.fetch = async () => {
     throw new Error("network down");
   };
+  console.error = () => {
+    errorCalled = true;
+  };
   t.after(() => {
     global.fetch = originalFetch;
+    console.error = originalError;
   });
 
   assert.equal(await verifyTurnstile("tok", "203.0.113.1"), false);
+  assert.equal(errorCalled, true);
 });
 
 test("throws when the secret is not configured", async (t) => {
