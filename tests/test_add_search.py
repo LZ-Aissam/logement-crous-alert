@@ -676,7 +676,7 @@ def test_main_dedupes_case_insensitive_emails_sends_one_confirmation(tmp_path, m
     assert list(pending["Agen"]["pending_emails"].values()) == ["a@example.com"]
 
 
-def test_main_rejects_more_than_three_distinct_emails(tmp_path, monkeypatch):
+def test_main_rejects_multiple_distinct_emails(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
     body = (
@@ -911,6 +911,7 @@ def test_missing_email_is_rejected(monkeypatch, tmp_path):
         "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     assert mod.main() == 1
 
 
@@ -922,6 +923,7 @@ def test_more_than_one_email_is_rejected(monkeypatch, tmp_path):
         "### Email de notification\n\na@example.com, b@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     assert mod.main() == 1
 
 
