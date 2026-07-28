@@ -10,6 +10,11 @@ const FIELD_NAME = "Nom de la recherche";
 const FIELD_CITY = "Ville";
 const FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel";
 const FIELD_EMAILS = "Email(s) de notification - optionnel";
+const FIELD_EXTENT = "Zone geographique precise (rempli automatiquement) - optionnel";
+const FIELD_MAX_PRICE = "Prix maximum - optionnel";
+const FIELD_MIN_AREA = "Surface minimum en m2 - optionnel";
+const FIELD_OCCUPATION_MODE = "Type de cohabitation (individuel, couple, colocation) - optionnel";
+const FIELD_PRM = "Logement adapte PMR - optionnel";
 
 function section(label, value) {
   const trimmed = value && value.trim();
@@ -22,6 +27,11 @@ function buildIssueBody(fields) {
     section(FIELD_CITY, fields.city),
     section(FIELD_KEYWORDS, fields.keywords),
     section(FIELD_EMAILS, fields.emails),
+    section(FIELD_EXTENT, fields.extent),
+    section(FIELD_MAX_PRICE, fields.maxPrice),
+    section(FIELD_MIN_AREA, fields.minArea),
+    section(FIELD_OCCUPATION_MODE, fields.occupationMode),
+    section(FIELD_PRM, fields.prm),
   ].join("\n");
 }
 
@@ -52,6 +62,20 @@ async function handler(event) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: "Le nom de la recherche et la ville sont obligatoires." }),
+    };
+  }
+
+  if (fields.maxPrice && fields.maxPrice.trim() && Number.isNaN(Number(fields.maxPrice))) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Le prix maximum doit etre un nombre." }),
+    };
+  }
+
+  if (fields.minArea && fields.minArea.trim() && Number.isNaN(Number(fields.minArea))) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "La surface minimum doit etre un nombre." }),
     };
   }
 

@@ -109,3 +109,78 @@ test("rate limit trips after 5 requests from the same IP within the window", asy
   const sixth = await handler(makeEvent({ name: "Brest", city: "Brest" }, ip));
   assert.equal(sixth.statusCode, 429);
 });
+
+test("valid payload includes the 5 new optional sections in the issue body", async (t) => {
+  const originalFetch = global.fetch;
+  const originalRepo = process.env.GITHUB_REPOSITORY;
+  const originalToken = process.env.GITHUB_PAT;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, json: async () => ({ html_url: "https://github.com/o/r/issues/3" }) };
+  };
+  process.env.GITHUB_REPOSITORY = "o/r";
+  process.env.GITHUB_PAT = "tok";
+  t.after(() => {
+    global.fetch = originalFetch;
+    process.env.GITHUB_REPOSITORY = originalRepo;
+    process.env.GITHUB_PAT = originalToken;
+  });
+
+  const result = await handler(
+    makeEvent(
+      {
+        name: "Brest",
+        city: "Brest 29200",
+        extent: "-4.5689169_48.4595521_-4.4278311_48.3572972",
+        maxPrice: "400",
+        minArea: "15",
+        occupationMode: "alone,house_sharing",
+        prm: "true",
+      },
+      "203.0.113.31"
+    )
+  );
+
+  assert.equal(result.statusCode, 200);
+  const sentBody = JSON.parse(calls[0].options.body);
+  assert.match(
+    sentBody.body,
+    /### Zone geographique precise \(rempli automatiquement\) - optionnel\n\n-4\.5689169_48\.4595521_-4\.4278311_48\.3572972\n/
+  );
+  assert.match(sentBody.body, /### Prix maximum - optionnel\n\n400\n/);
+  assert.match(sentBody.body, /### Surface minimum en m2 - optionnel\n\n15\n/);
+  assert.match(
+    sentBody.body,
+    /### Type de cohabitation \(individuel, couple, colocation\) - optionnel\n\nalone,house_sharing\n/
+  );
+  assert.match(sentBody.body, /### Logement adapte PMR - optionnel\n\ntrue\n/);
+});
+
+test("non-numeric maxPrice returns 400", async () => {
+  const result = await handler(
+    makeEvent({ name: "Brest", city: "Brest 29200", maxPrice: "gratuit" }, "203.0.113.32")
+  );
+  assert.equal(result.statusCode, 400);
+});
+
+test("non-numeric minArea returns 400", async () => {
+  const result = await handler(
+    makeEvent({ name: "Brest", city: "Brest 29200", minArea: "grand" }, "203.0.113.33")
+  );
+  assert.equal(result.statusCode, 400);
+});
+
+test("missing optional new fields still succeeds (backward compatible)", async (t) => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({ html_url: "https://github.com/o/r/issues/3" }),
+  });
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const result = await handler(makeEvent({ name: "Brest", city: "Brest 29200" }, "203.0.113.34"));
+  assert.equal(result.statusCode, 200);
+});
