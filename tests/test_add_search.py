@@ -809,3 +809,20 @@ def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
     searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
     assert len(searches) == 1
     assert not (tmp_path / "pending_searches.json").exists()
+
+
+def test_pending_searches_path_derives_from_check_logement_data_dir(monkeypatch):
+    monkeypatch.setenv("DATA_DIR", "data")
+    import importlib
+
+    import check_logement
+    import add_search
+
+    importlib.reload(check_logement)
+    reloaded = importlib.reload(add_search)
+    try:
+        assert reloaded.PENDING_SEARCHES_PATH == Path("data/pending_searches.json")
+    finally:
+        monkeypatch.delenv("DATA_DIR", raising=False)
+        importlib.reload(check_logement)
+        importlib.reload(add_search)

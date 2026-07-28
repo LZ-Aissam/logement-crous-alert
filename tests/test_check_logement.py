@@ -887,8 +887,12 @@ def test_data_dir_defaults_to_current_directory(monkeypatch):
     import check_logement
 
     reloaded = importlib.reload(check_logement)
-    assert reloaded.SEARCHES_PATH == Path("searches.json")
-    assert reloaded.SEEN_PATH == Path("seen.json")
+    try:
+        assert reloaded.SEARCHES_PATH == Path("searches.json")
+        assert reloaded.SEEN_PATH == Path("seen.json")
+    finally:
+        monkeypatch.delenv("DATA_DIR", raising=False)
+        importlib.reload(check_logement)
 
 
 def test_data_dir_env_var_relocates_data_files(monkeypatch):
@@ -898,7 +902,9 @@ def test_data_dir_env_var_relocates_data_files(monkeypatch):
     import check_logement
 
     reloaded = importlib.reload(check_logement)
-    assert reloaded.SEARCHES_PATH == Path("data/searches.json")
-    assert reloaded.SEEN_PATH == Path("data/seen.json")
-    monkeypatch.delenv("DATA_DIR", raising=False)
-    importlib.reload(check_logement)
+    try:
+        assert reloaded.SEARCHES_PATH == Path("data/searches.json")
+        assert reloaded.SEEN_PATH == Path("data/seen.json")
+    finally:
+        monkeypatch.delenv("DATA_DIR", raising=False)
+        importlib.reload(check_logement)
