@@ -41,3 +41,47 @@ body:
       placeholder: toi@example.com
     validations:
       required: false
+  - type: input
+    id: extent
+    attributes:
+      label: Zone geographique precise (rempli automatiquement) - optionnel
+      description: >-
+        Normalement rempli automatiquement par le formulaire public quand tu
+        selectionnes une suggestion. Laisse vide pour une soumission manuelle -- la
+        recherche utilisera la ville renseignee ci-dessus avec une zone par defaut.
+    validations:
+      required: false
+  - type: input
+    id: maxPrice
+    attributes:
+      label: Prix maximum - optionnel
+      description: En euros. Laisse vide pour aucune limite de prix.
+      placeholder: "400"
+    validations:
+      required: false
+  - type: input
+    id: minArea
+    attributes:
+      label: Surface minimum en m2 - optionnel
+      description: Laisse vide pour aucune limite de surface.
+      placeholder: "15"
+    validations:
+      required: false
+  - type: input
+    id: occupationMode
+    attributes:
+      label: Type de cohabitation (individuel, couple, colocation) - optionnel
+      description: >-
+        Separes par des virgules parmi : individuel, couple, colocation. Laisse
+        vide pour ne pas filtrer par type de cohabitation.
+      placeholder: individuel, colocation
+    validations:
+      required: false
+  - type: input
+    id: prm
+    attributes:
+      label: Logement adapte PMR - optionnel
+      description: Ecris "oui" pour ne voir que les logements adaptes PMR. Laisse vide sinon.
+      placeholder: "oui"
+    validations:
+      required: false

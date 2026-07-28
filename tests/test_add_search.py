@@ -358,6 +358,11 @@ def test_field_label_constants_match_issue_form_yaml():
     assert labels_by_id["city"] == mod.FIELD_CITY
     assert labels_by_id["keywords"] == mod.FIELD_KEYWORDS
     assert labels_by_id["emails"] == mod.FIELD_EMAILS
+    assert labels_by_id["extent"] == mod.FIELD_EXTENT
+    assert labels_by_id["maxPrice"] == mod.FIELD_MAX_PRICE
+    assert labels_by_id["minArea"] == mod.FIELD_MIN_AREA
+    assert labels_by_id["occupationMode"] == mod.FIELD_OCCUPATION_MODE
+    assert labels_by_id["prm"] == mod.FIELD_PRM
 
 
 def test_js_field_labels_match_python_constants():
@@ -366,6 +371,11 @@ def test_js_field_labels_match_python_constants():
     assert f'const FIELD_CITY = "{mod.FIELD_CITY}";' in js_source
     assert f'const FIELD_KEYWORDS = "{mod.FIELD_KEYWORDS}";' in js_source
     assert f'const FIELD_EMAILS = "{mod.FIELD_EMAILS}";' in js_source
+    assert f'const FIELD_EXTENT = "{mod.FIELD_EXTENT}";' in js_source
+    assert f'const FIELD_MAX_PRICE = "{mod.FIELD_MAX_PRICE}";' in js_source
+    assert f'const FIELD_MIN_AREA = "{mod.FIELD_MIN_AREA}";' in js_source
+    assert f'const FIELD_OCCUPATION_MODE = "{mod.FIELD_OCCUPATION_MODE}";' in js_source
+    assert f'const FIELD_PRM = "{mod.FIELD_PRM}";' in js_source
 
 
 def test_js_confirm_code_label_matches_python_constant():
