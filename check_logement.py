@@ -242,7 +242,6 @@ def main() -> int:
     smtp_user = _require_env("SMTP_USER")
     smtp_password = _require_env("SMTP_PASSWORD")
     from_email = _require_env("FROM_EMAIL")
-    default_email = _require_env("ALERT_EMAIL")
 
     try:
         searches = load_searches()
@@ -256,7 +255,13 @@ def main() -> int:
     for search in searches:
         name = search["name"]
         url = search["url"]
-        recipients = search.get("emails") or [default_email]
+        recipients = search.get("emails") or []
+        if not recipients:
+            print(
+                f"[ERROR] {name}: aucun destinataire, recherche ignoree",
+                file=sys.stderr,
+            )
+            continue
 
         try:
             html = fetch_html(url)

@@ -325,7 +325,6 @@ def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatc
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(
@@ -358,8 +357,8 @@ def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, mo
     (tmp_path / "searches.json").write_text(
         json.dumps(
             [
-                {"name": "Rennes", "url": "https://example.com/rennes"},
-                {"name": "Brest", "url": "https://example.com/brest"},
+                {"name": "Rennes", "url": "https://example.com/rennes", "emails": ["r@example.com"]},
+                {"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]},
             ]
         ),
         encoding="utf-8",
@@ -369,7 +368,6 @@ def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, mo
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(
@@ -394,7 +392,7 @@ def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, mo
 def test_main_no_new_listings_sends_no_email(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(
-        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]}]),
         encoding="utf-8",
     )
     (tmp_path / "seen.json").write_text(json.dumps({"Brest": ["1"]}), encoding="utf-8")
@@ -403,7 +401,6 @@ def test_main_no_new_listings_sends_no_email(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(
@@ -423,8 +420,8 @@ def test_main_broken_search_does_not_block_others(tmp_path, monkeypatch):
     (tmp_path / "searches.json").write_text(
         json.dumps(
             [
-                {"name": "Broken", "url": "https://example.com/broken"},
-                {"name": "Brest", "url": "https://example.com/brest"},
+                {"name": "Broken", "url": "https://example.com/broken", "emails": ["broken@example.com"]},
+                {"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]},
             ]
         ),
         encoding="utf-8",
@@ -434,7 +431,6 @@ def test_main_broken_search_does_not_block_others(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     def fake_fetch(url):
         if "broken" in url:
@@ -462,8 +458,8 @@ def test_main_shape_drift_isolates_broken_search(tmp_path, monkeypatch):
     (tmp_path / "searches.json").write_text(
         json.dumps(
             [
-                {"name": "Broken", "url": "https://example.com/broken"},
-                {"name": "Brest", "url": "https://example.com/brest"},
+                {"name": "Broken", "url": "https://example.com/broken", "emails": ["broken@example.com"]},
+                {"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]},
             ]
         ),
         encoding="utf-8",
@@ -473,7 +469,6 @@ def test_main_shape_drift_isolates_broken_search(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: url)
 
@@ -498,7 +493,7 @@ def test_main_unions_seen_ids_instead_of_replacing(tmp_path, monkeypatch):
     # scrolled past page 1) must be preserved, unioned with the newly-seen id, not lost.
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(
-        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]}]),
         encoding="utf-8",
     )
     (tmp_path / "seen.json").write_text(json.dumps({"Brest": ["99"]}), encoding="utf-8")
@@ -507,7 +502,6 @@ def test_main_unions_seen_ids_instead_of_replacing(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(
@@ -527,7 +521,7 @@ def test_main_unions_seen_ids_instead_of_replacing(tmp_path, monkeypatch):
 def test_main_all_searches_fail_returns_error_code(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(
-        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]}]),
         encoding="utf-8",
     )
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
@@ -535,7 +529,6 @@ def test_main_all_searches_fail_returns_error_code(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     def fake_fetch(url):
         raise mod.SearchFetchError("boom")
@@ -560,46 +553,11 @@ def test_main_malformed_searches_json_returns_error(tmp_path, monkeypatch, capsy
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     assert mod.main() == 1
     captured = capsys.readouterr()
     assert "[ERROR]" in captured.err
     assert "searches.json" in captured.err
-
-
-def test_main_uses_alert_email_default_when_search_has_no_emails(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "searches.json").write_text(
-        json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
-        encoding="utf-8",
-    )
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_PORT", "587")
-    monkeypatch.setenv("SMTP_USER", "smtp-user")
-    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
-    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
-
-    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
-    monkeypatch.setattr(
-        mod,
-        "parse_search_results",
-        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
-    )
-    captured_to_addrs = []
-    monkeypatch.setattr(
-        mod,
-        "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: captured_to_addrs.append(
-            to_addrs
-        ),
-    )
-
-    exit_code = mod.main()
-
-    assert exit_code == 0
-    assert captured_to_addrs == [["default@example.com"]]
 
 
 def test_main_missing_env_var_returns_error(tmp_path, monkeypatch):
@@ -613,10 +571,34 @@ def test_main_missing_env_var_returns_error(tmp_path, monkeypatch):
     monkeypatch.delenv("SMTP_USER", raising=False)
     monkeypatch.delenv("SMTP_PASSWORD", raising=False)
     monkeypatch.delenv("FROM_EMAIL", raising=False)
-    monkeypatch.delenv("ALERT_EMAIL", raising=False)
 
     with pytest.raises(SystemExit):
         mod.main()
+
+
+def test_search_without_recipients_is_skipped_with_an_error(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Orpheline", "url": "https://example.test/search"}]),
+        encoding="utf-8",
+    )
+    (tmp_path / "seen.json").write_text("{}", encoding="utf-8")
+    for var in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "FROM_EMAIL"):
+        monkeypatch.setenv(var, "1" if var == "SMTP_PORT" else "x")
+    monkeypatch.delenv("ALERT_EMAIL", raising=False)
+
+    import importlib
+
+    import check_logement
+
+    reloaded = importlib.reload(check_logement)
+    monkeypatch.setattr(reloaded, "fetch_html", lambda url: "<html></html>")
+    monkeypatch.setattr(reloaded, "parse_search_results", lambda html: {"items": []})
+
+    reloaded.main()
+
+    captured = capsys.readouterr()
+    assert "aucun destinataire" in captured.err
 
 
 def test_item_matches_keywords_no_keywords_matches_everything():
@@ -653,7 +635,14 @@ def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(
         json.dumps(
-            [{"name": "Brest", "url": "https://example.com/brest", "keywords": ["kergoat"]}]
+            [
+                {
+                    "name": "Brest",
+                    "url": "https://example.com/brest",
+                    "keywords": ["kergoat"],
+                    "emails": ["b@example.com"],
+                }
+            ]
         ),
         encoding="utf-8",
     )
@@ -662,7 +651,6 @@ def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(
@@ -809,7 +797,6 @@ def test_main_sends_individual_email_per_recipient_with_personalized_unsubscribe
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
     monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
     monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
 
@@ -858,7 +845,6 @@ def test_main_marks_seen_when_at_least_one_recipient_succeeds(tmp_path, monkeypa
     monkeypatch.setenv("SMTP_USER", "smtp-user")
     monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
     monkeypatch.setenv("FROM_EMAIL", "me@example.com")
-    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(

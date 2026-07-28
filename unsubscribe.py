@@ -56,9 +56,9 @@ def main() -> int:
         return 1
 
     if not target.get("emails"):
-        # No explicit "emails" list: this search relies on the ALERT_EMAIL fallback.
-        # A valid token proves the requester is the (implicit) sole recipient, so per
-        # the "last recipient unsubscribes -> delete the whole search" rule, remove it.
+        # No explicit "emails" list. Since every search now requires a recipient, such
+        # an entry is a data anomaly rather than a supported case. A valid token proves
+        # the requester was a recipient, so removing the whole search is the right cleanup.
         searches = [s for s in searches if s is not target]
         clog.save_searches(searches)
         print(
