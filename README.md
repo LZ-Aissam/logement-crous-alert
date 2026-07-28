@@ -134,7 +134,7 @@ empreinte cryptographique l'est.)
 
 Par défaut, créer une recherche ou confirmer un email nécessite un compte GitHub (pour
 soumettre les Issue Forms ci-dessus). Pour ouvrir ça à n'importe qui sans compte, tu
-peux déployer les pages `public/nouvelle-recherche.html` et `public/confirmer.html` sur
+peux déployer les pages `public/index.html` (nouvelle recherche) et `public/confirmer.html` sur
 Netlify — elles créent les mêmes Issues GitHub à ta place, via deux Netlify Functions
 (`netlify/functions/create-search.js` et `confirm-email.js`). Le backend Python et les
 workflows GitHub Actions ne changent pas : ils traitent ces Issues exactement comme si
