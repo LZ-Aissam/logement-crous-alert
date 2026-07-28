@@ -135,7 +135,7 @@ c'est l'adresse du propriétaire du dépôt lui-même.
 
 Cette étape existe pour une seule raison : empêcher que quelqu'un renseigne l'adresse
 email d'un inconnu et lui fasse recevoir, sans son accord, des emails automatiques
-depuis le compte Gmail du propriétaire du dépôt.
+depuis l'adresse d'expéditeur configurée pour ce dépôt.
 
 **Attention, ces données restent publiques :** les adresses email que tu soumets
 finissent dans les fichiers du dépôt (`searches.json`, `pending_searches.json`), qui
@@ -201,7 +201,7 @@ il n'y a pas de compte utilisateur ni de tableau de bord pour gérer ses propres
 recherches après coup.
 
 **Risque à connaître** : ce formulaire public est aussi un relais d'envoi d'emails
-depuis ton compte Gmail — n'importe quel visiteur anonyme peut faire envoyer jusqu'à 3
+depuis ton compte d'envoi d'emails — n'importe quel visiteur anonyme peut faire envoyer jusqu'à 3
 emails de confirmation à des adresses de son choix par soumission, avant toute
 confirmation de sa part. En cas d'abus constaté, la mitigation la plus rapide est de
 révoquer le token `GITHUB_PAT` dans les variables d'environnement Netlify : ça coupe
@@ -215,7 +215,7 @@ pip install -r requirements-dev.txt
 python -m pytest -v
 ```
 
-Pour lancer le script en local (nécessite les 3 variables d'environnement ci-dessus) :
+Pour lancer le script en local (nécessite les 6 variables d'environnement ci-dessus) :
 
 En bash / macOS / Linux :
 
