@@ -1,15 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Etudiant soulage tenant une cle">
-  <circle cx="120" cy="120" r="110" fill="#e3f5f3" />
-  <rect x="88" y="118" width="64" height="92" rx="30" fill="#16191b" />
-  <circle cx="120" cy="86" r="32" fill="#16191b" />
-  <g transform="rotate(-18 168 150)">
-    <rect x="160" y="145" width="44" height="10" rx="5" fill="#006a6f" />
-    <circle cx="160" cy="150" r="12" fill="none" stroke="#006a6f" stroke-width="6" />
-    <rect x="196" y="145" width="6" height="14" fill="#006a6f" />
-    <rect x="188" y="145" width="6" height="10" fill="#006a6f" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="Etudiant debout, souriant, un bras leve tenant une cle">
+  <circle cx="160" cy="160" r="150" fill="#E3F5F3"/>
+  <ellipse cx="160" cy="284" rx="70" ry="12" fill="#CDEBE8"/>
+
+  <!-- legs standing -->
+  <path d="M140 270 L136 210" fill="none" stroke="#2A2D35" stroke-width="26" stroke-linecap="round"/>
+  <path d="M180 270 L184 210" fill="none" stroke="#2A2D35" stroke-width="26" stroke-linecap="round"/>
+
+  <!-- torso / jacket -->
+  <path d="M120 214 C114 168 132 132 160 132 C188 132 206 168 200 214 C196 236 182 246 160 246 C138 246 124 236 120 214 Z" fill="#006A6F"/>
+
+  <!-- lowered arm -->
+  <path d="M128 190 C110 196 100 214 104 234" fill="none" stroke="#006A6F" stroke-width="19" stroke-linecap="round"/>
+  <circle cx="105" cy="235" r="11" fill="#F0C9A0"/>
+
+  <!-- raised arm holding key -->
+  <path d="M192 186 C214 168 224 134 214 104" fill="none" stroke="#006A6F" stroke-width="19" stroke-linecap="round"/>
+  <circle cx="214" cy="104" r="11" fill="#F0C9A0"/>
+
+  <!-- key -->
+  <g transform="translate(226 82) rotate(-25)">
+    <circle r="11" fill="none" stroke="#16191B" stroke-width="5"/>
+    <rect x="0" y="-3" width="26" height="6" fill="#16191B"/>
+    <rect x="20" y="-3" width="5" height="10" fill="#16191B"/>
+    <rect x="12" y="-3" width="5" height="7" fill="#16191B"/>
   </g>
-  <g transform="rotate(10 190 70)">
-    <circle cx="190" cy="70" r="24" fill="none" stroke="#006a6f" stroke-width="4" />
-    <path d="M180 70 l7 7 l14 -14" fill="none" stroke="#006a6f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-  </g>
+
+  <!-- head -->
+  <circle cx="160" cy="108" r="38" fill="#F0C9A0"/>
+  <path d="M123 104 Q126 62 160 60 Q196 62 198 106 Q182 84 160 84 Q138 84 123 104 Z" fill="#16191B"/>
+
+  <!-- happy face -->
+  <path d="M141 106 Q145 100 149 106" fill="none" stroke="#16191B" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M171 106 Q175 100 179 106" fill="none" stroke="#16191B" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M140 118 Q160 136 180 118" fill="none" stroke="#16191B" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- confetti -->
+  <circle cx="90" cy="70" r="5" fill="#FF732C"/>
+  <circle cx="240" cy="150" r="5" fill="#E01020"/>
+  <rect x="70" y="150" width="9" height="9" fill="#34C4B5" transform="rotate(20 74 154)"/>
+  <rect x="235" y="60" width="9" height="9" fill="#FF732C" transform="rotate(-15 239 64)"/>
 </svg>

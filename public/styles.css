@@ -1,6 +1,9 @@
-/* Design tokens — real CROUS Rennes brand colors, see docs/superpowers/specs/2026-07-28-showcase-redesign-design.md */
+/* Design system on top of Bootstrap 5 — real CROUS Rennes brand colors.
+   See docs/superpowers/specs/2026-07-28-showcase-redesign-design.md */
+
 :root {
   --color-red: #e01020;
+  --color-red-dark: #b30d1a;
   --color-orange: #ff732c;
   --color-greenwater: #34c4b5;
   --front-greenwater: #006a6f;
@@ -9,30 +12,48 @@
   --paper: #ffffff;
   --font-display: "Archivo Black", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
-}
 
-* { box-sizing: border-box; }
+  /* Bootstrap theme overrides */
+  --bs-primary: var(--color-red);
+  --bs-primary-rgb: 224, 16, 32;
+  --bs-link-color: var(--front-greenwater);
+  --bs-link-color-rgb: 0, 106, 111;
+  --bs-link-hover-color: var(--color-red-dark);
+  --bs-body-font-family: var(--font-body);
+  --bs-body-color: var(--ink);
+  --bs-border-radius: 0.9rem;
+  --bs-border-radius-lg: 1.25rem;
+  --bs-border-radius-sm: 0.6rem;
+  --bs-success: var(--front-greenwater);
+  --bs-success-rgb: 0, 106, 111;
+}
 
 body {
-  margin: 0;
-  font-family: var(--font-body);
-  color: var(--ink);
   background: var(--paper);
-  line-height: 1.6;
 }
 
-h1, h2, h3 {
+h1, h2, h3, .display-1, .display-2, .display-3, .display-4 {
   font-family: var(--font-display);
-  line-height: 1.15;
-  margin: 0 0 0.5em;
+  letter-spacing: -0.01em;
 }
 
-a { color: var(--front-greenwater); }
+.btn-primary {
+  --bs-btn-bg: var(--color-red);
+  --bs-btn-border-color: var(--color-red);
+  --bs-btn-hover-bg: var(--color-red-dark);
+  --bs-btn-hover-border-color: var(--color-red-dark);
+  --bs-btn-active-bg: var(--color-red-dark);
+  --bs-btn-focus-shadow-rgb: 224, 16, 32;
+  font-weight: 600;
+  box-shadow: 0 8px 20px -8px rgba(224, 16, 32, 0.55);
+}
 
-.container {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 0 1.25rem;
+.btn-outline-teal {
+  --bs-btn-color: var(--front-greenwater);
+  --bs-btn-border-color: var(--front-greenwater);
+  --bs-btn-hover-bg: var(--front-greenwater);
+  --bs-btn-hover-border-color: var(--front-greenwater);
+  font-weight: 600;
 }
 
 /* Stamp badge — the site's signature element */
@@ -43,13 +64,14 @@ a { color: var(--front-greenwater); }
   border: 3px solid var(--color-red);
   color: var(--color-red);
   font-family: var(--font-display);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   transform: rotate(-6deg);
   transform-origin: center;
+  background: var(--paper);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -63,66 +85,69 @@ a { color: var(--front-greenwater); }
   to { transform: rotate(-6deg) scale(1); opacity: 1; }
 }
 
-.card {
-  border: 1px solid var(--color-grey);
-  border-radius: 8px;
-  padding: 1.5rem;
-  background: var(--paper);
+.stamp-teal {
+  border-color: var(--front-greenwater);
+  color: var(--front-greenwater);
 }
 
-.btn {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 1rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: transform 0.15s ease;
-  display: inline-block;
-  text-decoration: none;
+.section-eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.btn:hover { transform: translateY(-2px); }
-.btn:focus-visible { outline: 3px solid var(--front-greenwater); outline-offset: 2px; }
-
-.btn-primary {
-  background: var(--color-red);
-  color: var(--paper);
-}
-
-.btn-primary:hover { background: #c00e1c; }
-
-.field { margin-top: 1.25rem; }
-
-.field label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
-
-.field input {
+.illustration-frame {
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-grey);
-  border-radius: 6px;
+  max-width: 300px;
+  filter: drop-shadow(0 18px 30px rgba(22, 25, 27, 0.12));
+}
+
+.step-marker {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: 0 0 2.4rem;
+  background: var(--front-greenwater);
+  color: var(--paper);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
   font-size: 1rem;
-  font-family: var(--font-body);
 }
 
-.field input:focus-visible {
-  outline: 3px solid var(--front-greenwater);
-  outline-offset: 1px;
+.form-control:focus {
+  border-color: var(--front-greenwater);
+  box-shadow: 0 0 0 0.25rem rgba(0, 106, 111, 0.2);
 }
-
-.result {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border-radius: 8px;
-}
-
-.result.success { background: #e3f5f3; color: var(--front-greenwater); }
-.result.error { background: #fce8e6; color: var(--color-red); }
-.result.hidden { display: none; }
 
 .honeypot { position: absolute; left: -9999px; top: -9999px; }
+
+/* Entrance + scroll-reveal animation */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fade-up 0.7s ease both; }
+.fade-in-up.delay-1 { animation-delay: 0.15s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .fade-in-up, .stamp {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+.navbar-brand i { color: var(--color-red); }
+
+.card { box-shadow: 0 1px 2px rgba(22,25,27,0.04); }

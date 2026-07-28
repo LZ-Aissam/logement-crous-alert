@@ -1,13 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Etudiant stresse penche sur son telephone">
-  <circle cx="120" cy="120" r="110" fill="#e8e8e8" />
-  <g transform="rotate(6 120 150)">
-    <rect x="88" y="120" width="64" height="90" rx="30" fill="#16191b" />
-    <circle cx="120" cy="88" r="32" fill="#16191b" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="Etudiant assis par terre, stresse, les yeux ecarquilles devant son telephone">
+  <circle cx="160" cy="160" r="150" fill="#FCE9E9"/>
+  <ellipse cx="160" cy="272" rx="90" ry="14" fill="#F3D3D3"/>
+
+  <!-- legs (sitting, knees up) -->
+  <path d="M118 250 C110 210 118 190 140 178" fill="none" stroke="#2A2D35" stroke-width="30" stroke-linecap="round"/>
+  <path d="M202 250 C210 210 202 190 180 178" fill="none" stroke="#2A2D35" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="140" cy="178" r="17" fill="#2A2D35"/>
+  <circle cx="180" cy="178" r="17" fill="#2A2D35"/>
+
+  <!-- torso / hoodie -->
+  <path d="M118 194 C112 154 130 122 160 122 C190 122 208 154 202 194 C198 218 182 230 160 230 C138 230 122 218 118 194 Z" fill="#E01020"/>
+
+  <!-- arms bent, hands converging toward the phone -->
+  <path d="M132 176 C112 168 106 148 118 130" fill="none" stroke="#E01020" stroke-width="20" stroke-linecap="round"/>
+  <path d="M188 176 C208 168 214 148 202 130" fill="none" stroke="#E01020" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="120" cy="128" r="12" fill="#F0C9A0"/>
+  <circle cx="200" cy="128" r="12" fill="#F0C9A0"/>
+
+  <!-- head -->
+  <circle cx="160" cy="100" r="40" fill="#F0C9A0"/>
+  <path d="M120 94 Q124 52 160 50 Q200 52 202 96 Q184 76 160 76 Q136 76 120 94 Z" fill="#16191B"/>
+
+  <!-- worried face -->
+  <circle cx="145" cy="102" r="5" fill="#16191B"/>
+  <circle cx="175" cy="102" r="5" fill="#16191B"/>
+  <path d="M135 90 Q145 83 155 90" fill="none" stroke="#16191B" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M165 90 Q175 83 185 90" fill="none" stroke="#16191B" stroke-width="3.2" stroke-linecap="round"/>
+  <ellipse cx="160" cy="120" rx="7" ry="9" fill="#16191B"/>
+
+  <!-- phone, held up in front of the face, drawn last so it sits on top -->
+  <g transform="rotate(-6 160 128)">
+    <rect x="139" y="98" width="42" height="66" rx="8" fill="#ffffff" stroke="#16191B" stroke-width="4"/>
+    <rect x="146" y="107" width="28" height="40" rx="3" fill="#E01020"/>
+    <circle cx="160" cy="154" r="3" fill="#16191B"/>
   </g>
-  <rect x="140" y="95" width="34" height="58" rx="6" fill="#ffffff" stroke="#16191b" stroke-width="4" transform="rotate(18 157 124)" />
-  <rect x="146" y="102" width="22" height="30" rx="2" fill="#e01020" transform="rotate(18 157 124)" />
-  <circle cx="176" cy="70" r="16" fill="none" stroke="#e01020" stroke-width="4" />
-  <line x1="176" y1="70" x2="176" y2="60" stroke="#e01020" stroke-width="3" stroke-linecap="round" />
-  <line x1="176" y1="70" x2="183" y2="70" stroke="#e01020" stroke-width="3" stroke-linecap="round" />
-  <path d="M78 96 Q84 108 78 116 Q72 108 78 96 Z" fill="#34c4b5" />
+
+  <!-- clock -->
+  <g transform="translate(252 68)">
+    <circle r="24" fill="#ffffff" stroke="#E01020" stroke-width="5"/>
+    <line x1="0" y1="0" x2="0" y2="-13" stroke="#E01020" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="0" y1="0" x2="10" y2="5" stroke="#E01020" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- sweat drop -->
+  <path d="M104 66 Q114 80 104 92 Q94 80 104 66 Z" fill="#34C4B5"/>
 </svg>
