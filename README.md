@@ -10,15 +10,24 @@ Actions — pas besoin de garder un PC allumé.
    GitHub Actions illimitées et gratuites — sur un dépôt privé, les minutes sont
    limitées et le bot finirait par s'arrêter tout seul en cours de mois.
 
-2. **Créer un mot de passe d'application Google** (nécessite la validation en 2 étapes
-   activée sur le compte Gmail utilisé pour envoyer les emails) :
-   https://myaccount.google.com/apppasswords — génère un mot de passe pour "Mail",
-   copie-le (16 caractères sans espaces).
+2. **Créer un compte Brevo** (gratuit, 300 emails/jour) sur https://www.brevo.com/ pour
+   l'envoi des emails — évite de faire transiter tout le trafic (alertes, confirmations)
+   par ton compte Gmail personnel :
+   - Dans Brevo, va dans **Settings > SMTP & API > SMTP** pour récupérer ton identifiant
+     SMTP et générer une clé SMTP (mot de passe).
+   - Vérifie une adresse d'expéditeur (**Settings > Senders & IP > Senders**, ajoute et
+     valide l'adresse que tu veux voir comme expéditeur des emails) — c'est cette adresse
+     qui sera utilisée comme `FROM_EMAIL` ci-dessous.
 
 3. **Configurer les secrets du dépôt GitHub** : Settings > Secrets and variables >
    Actions > New repository secret, ajouter :
-   - `GMAIL_ADDRESS` : l'adresse Gmail utilisée pour envoyer (ex: theaissam@gmail.com)
-   - `GMAIL_APP_PASSWORD` : le mot de passe d'application généré à l'étape 2
+   - `SMTP_HOST` : l'hôte SMTP de Brevo, `smtp-relay.brevo.com`
+   - `SMTP_PORT` : `587`
+   - `SMTP_USER` : ton identifiant SMTP Brevo (récupéré à l'étape 2)
+   - `SMTP_PASSWORD` : ta clé SMTP Brevo (générée à l'étape 2, pas ton mot de passe de
+     compte Brevo)
+   - `FROM_EMAIL` : l'adresse expéditeur vérifiée dans Brevo à l'étape 2 — distincte de
+     `SMTP_USER`, qui sert uniquement à l'authentification
    - `ALERT_EMAIL` : l'email destinataire par défaut, utilisé pour toute recherche
      dans `searches.json` qui n'a pas son propre champ `emails`
    - `UNSUBSCRIBE_SECRET` : une chaine aleatoire (ex. generee avec
@@ -211,15 +220,18 @@ Pour lancer le script en local (nécessite les 3 variables d'environnement ci-de
 En bash / macOS / Linux :
 
 ```bash
-export GMAIL_ADDRESS=... GMAIL_APP_PASSWORD=... ALERT_EMAIL=...
+export SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASSWORD=... FROM_EMAIL=... ALERT_EMAIL=...
 python check_logement.py
 ```
 
 En PowerShell (Windows) :
 
 ```powershell
-$env:GMAIL_ADDRESS = "..."
-$env:GMAIL_APP_PASSWORD = "..."
+$env:SMTP_HOST = "..."
+$env:SMTP_PORT = "587"
+$env:SMTP_USER = "..."
+$env:SMTP_PASSWORD = "..."
+$env:FROM_EMAIL = "..."
 $env:ALERT_EMAIL = "..."
 python check_logement.py
 ```
