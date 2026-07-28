@@ -64,7 +64,8 @@ async function handler(event) {
       labels: ["new-search"],
     });
     return { statusCode: 200, body: JSON.stringify({ issueUrl: issue.url }) };
-  } catch {
+  } catch (err) {
+    console.error("create-search: GitHub API call failed", err);
     return {
       statusCode: 502,
       body: JSON.stringify({ error: "Une erreur est survenue, reessaie dans quelques minutes." }),

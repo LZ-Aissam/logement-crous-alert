@@ -49,7 +49,8 @@ async function handler(event) {
       labels: ["confirm-email"],
     });
     return { statusCode: 200, body: JSON.stringify({ issueUrl: issue.url }) };
-  } catch {
+  } catch (err) {
+    console.error("confirm-email: GitHub API call failed", err);
     return {
       statusCode: 502,
       body: JSON.stringify({ error: "Une erreur est survenue, reessaie dans quelques minutes." }),
