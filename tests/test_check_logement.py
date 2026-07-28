@@ -717,3 +717,89 @@ def test_format_email_body_omits_unsubscribe_section_when_none():
     body = mod.format_email_body("Brest", new_items, "https://example.com/search")
 
     assert "Pour ne plus recevoir ces alertes" not in body
+
+
+def test_main_sends_individual_email_per_recipient_with_personalized_unsubscribe_link(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Brest",
+                    "url": "https://example.com/brest",
+                    "emails": ["a@example.com", "b@example.com"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append((to_addrs, body)),
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert [addrs for addrs, _ in sent] == [["a@example.com"], ["b@example.com"]]
+    body_a = next(body for addrs, body in sent if addrs == ["a@example.com"])
+    body_b = next(body for addrs, body in sent if addrs == ["b@example.com"])
+    assert "email=a%40example.com" in body_a
+    assert "email=b%40example.com" in body_b
+    token_a = body_a.rsplit("token=", 1)[1]
+    token_b = body_b.rsplit("token=", 1)[1]
+    assert token_a != token_b
+
+
+def test_main_marks_seen_when_at_least_one_recipient_succeeds(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Brest",
+                    "url": "https://example.com/brest",
+                    "emails": ["a@example.com", "b@example.com"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+
+    def fake_send_email(subject, body, to_addrs, smtp_user, smtp_password):
+        if to_addrs == ["a@example.com"]:
+            raise mod.smtplib.SMTPException("boom")
+
+    monkeypatch.setattr(mod, "send_email", fake_send_email)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
+    assert seen == {"Brest": ["1"]}

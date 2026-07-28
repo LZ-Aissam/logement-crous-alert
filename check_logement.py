@@ -250,7 +250,6 @@ def main() -> int:
             new_items, all_ids = find_new_items(items, seen_ids)
             if new_items:
                 subject = f"[Logement] {len(new_items)} nouveau(x) pour {name}"
-                body = format_email_body(name, new_items, url)
         except (SearchFetchError, KeyError, TypeError, AttributeError) as exc:
             print(f"[ERROR] {name}: {exc}", file=sys.stderr)
             continue
@@ -258,12 +257,20 @@ def main() -> int:
         any_success = True
 
         if new_items:
-            try:
-                send_email(subject, body, recipients, smtp_user, smtp_password)
-            except Exception as exc:
-                print(f"[ERROR] {name}: failed to send email: {exc}", file=sys.stderr)
+            sent_count = 0
+            for recipient in recipients:
+                unsubscribe_url = build_unsubscribe_url(name, recipient)
+                try:
+                    body = format_email_body(name, new_items, url, unsubscribe_url)
+                    send_email(subject, body, [recipient], smtp_user, smtp_password)
+                except Exception as exc:
+                    print(f"[ERROR] {name}: failed to send email to {recipient}: {exc}", file=sys.stderr)
+                    continue
+                sent_count += 1
+            if sent_count == 0:
+                print(f"[ERROR] {name}: failed to send alert to any recipient", file=sys.stderr)
                 continue
-            print(f"[OK] {name}: sent alert for {len(new_items)} new listing(s)")
+            print(f"[OK] {name}: sent alert for {len(new_items)} new listing(s) to {sent_count} recipient(s)")
         else:
             print(f"[OK] {name}: no new listings ({len(items)} total)")
 
