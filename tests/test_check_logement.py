@@ -696,3 +696,24 @@ def test_build_unsubscribe_url_falls_back_to_github_when_base_url_unset(monkeypa
         "https://github.com/LZ-Aissam/logement-crous-alert/issues/new"
         f"?template=unsubscribe.yml&search=Brest&email=x%40example.com&token={expected_token}"
     )
+
+
+def test_format_email_body_appends_unsubscribe_link_when_provided():
+    new_items = [{"id": 1, "label": "T1", "residence": {"label": "R"}}]
+
+    body = mod.format_email_body(
+        "Brest",
+        new_items,
+        "https://example.com/search",
+        unsubscribe_url="https://example.com/unsub?token=abc",
+    )
+
+    assert "Pour ne plus recevoir ces alertes : https://example.com/unsub?token=abc" in body
+
+
+def test_format_email_body_omits_unsubscribe_section_when_none():
+    new_items = [{"id": 1, "label": "T1", "residence": {"label": "R"}}]
+
+    body = mod.format_email_body("Brest", new_items, "https://example.com/search")
+
+    assert "Pour ne plus recevoir ces alertes" not in body

@@ -179,7 +179,10 @@ def _format_rent(item: dict[str, Any]) -> str:
 
 
 def format_email_body(
-    search_name: str, new_items: list[dict[str, Any]], search_url: str
+    search_name: str,
+    new_items: list[dict[str, Any]],
+    search_url: str,
+    unsubscribe_url: str | None = None,
 ) -> str:
     lines = [
         f'{len(new_items)} nouveau(x) logement(s) pour la recherche "{search_name}" :',
@@ -193,6 +196,9 @@ def format_email_body(
         lines.append(f"- {label} - {residence.get('label', '')} - {address} - {rent_str}")
     lines.append("")
     lines.append(f"Voir la recherche : {search_url}")
+    if unsubscribe_url:
+        lines.append("")
+        lines.append(f"Pour ne plus recevoir ces alertes : {unsubscribe_url}")
     return "\n".join(lines)
 
 
