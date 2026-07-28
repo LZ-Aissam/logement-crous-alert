@@ -1,0 +1,70 @@
+{
+  "normalize_city_cases": [
+    { "input": "  Saint   Denis  ", "expected": "saint denis" },
+    { "input": "", "expected": "" },
+    { "input": "Brest", "expected": "brest" },
+    { "input": "RENNES", "expected": "rennes" }
+  ],
+  "match_cases": [
+    {
+      "description": "both have extent, same extent, different city label -> match",
+      "a": { "extent": "1_2_3_4", "city": "rennes", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "1_2_3_4", "city": "rennes villejean", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": true
+    },
+    {
+      "description": "both have extent, different extent -> no match even if city matches",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "5_6_7_8", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": false
+    },
+    {
+      "description": "asymmetric extent (only a has one), same normalized city -> match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": true
+    },
+    {
+      "description": "asymmetric extent (only a has one), different city -> no match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "", "city": "rennes", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": false
+    },
+    {
+      "description": "neither has extent, same normalized city -> match",
+      "a": { "extent": "", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": true
+    },
+    {
+      "description": "maxPrice 0 vs 0 -> match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": 0, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": 0, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": true
+    },
+    {
+      "description": "maxPrice 0 vs null -> no match, zero is not the same as absent",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": 0, "minArea": null, "occupationModes": [], "prm": false },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": false
+    },
+    {
+      "description": "differing minArea -> no match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": 15, "occupationModes": [], "prm": false },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": 20, "occupationModes": [], "prm": false },
+      "expected": false
+    },
+    {
+      "description": "occupationModes same set, different order -> match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": ["alone", "couple"], "prm": false },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": ["couple", "alone"], "prm": false },
+      "expected": true
+    },
+    {
+      "description": "differing prm -> no match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": true },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": false
+    }
+  ]
+}
