@@ -1,6 +1,8 @@
 """Poll CROUS housing searches and email alerts when new listings appear."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -84,6 +86,17 @@ def save_seen(seen: dict[str, list[str]], path: Path = SEEN_PATH) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(seen, f, indent=2, sort_keys=True, ensure_ascii=False)
         f.write("\n")
+
+
+def compute_unsubscribe_token(search_name: str, email: str) -> str | None:
+    secret = os.environ.get("UNSUBSCRIBE_SECRET")
+    if not secret:
+        return None
+    return hmac.new(
+        secret.encode("utf-8"),
+        f"{search_name}|{email.lower()}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def find_new_items(

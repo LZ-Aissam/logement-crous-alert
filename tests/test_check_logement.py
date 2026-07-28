@@ -621,3 +621,42 @@ def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
     assert "Kergoat" in sent[0]
     seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
     assert seen == {"Brest": ["1"]}
+
+
+import hashlib
+import hmac as hmac_module
+
+
+def test_compute_unsubscribe_token_returns_none_when_secret_unset(monkeypatch):
+    monkeypatch.delenv("UNSUBSCRIBE_SECRET", raising=False)
+    assert mod.compute_unsubscribe_token("Brest", "x@example.com") is None
+
+
+def test_compute_unsubscribe_token_matches_expected_hmac(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+
+    token = mod.compute_unsubscribe_token("Brest", "x@example.com")
+
+    expected = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert token == expected
+
+
+def test_compute_unsubscribe_token_is_case_insensitive_on_email(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+
+    lower = mod.compute_unsubscribe_token("Brest", "x@example.com")
+    upper = mod.compute_unsubscribe_token("Brest", "X@EXAMPLE.COM")
+
+    assert lower == upper
+
+
+def test_compute_unsubscribe_token_differs_per_search_and_email(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+
+    token_a = mod.compute_unsubscribe_token("Brest", "x@example.com")
+    token_b = mod.compute_unsubscribe_token("Rennes", "x@example.com")
+    token_c = mod.compute_unsubscribe_token("Brest", "y@example.com")
+
+    assert len({token_a, token_b, token_c}) == 3
