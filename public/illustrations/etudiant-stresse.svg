@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Etudiant stresse penche sur son telephone">
+  <circle cx="120" cy="120" r="110" fill="#e8e8e8" />
+  <g transform="rotate(6 120 150)">
+    <rect x="88" y="120" width="64" height="90" rx="30" fill="#16191b" />
+    <circle cx="120" cy="88" r="32" fill="#16191b" />
+  </g>
+  <rect x="140" y="95" width="34" height="58" rx="6" fill="#ffffff" stroke="#16191b" stroke-width="4" transform="rotate(18 157 124)" />
+  <rect x="146" y="102" width="22" height="30" rx="2" fill="#e01020" transform="rotate(18 157 124)" />
+  <circle cx="176" cy="70" r="16" fill="none" stroke="#e01020" stroke-width="4" />
+  <line x1="176" y1="70" x2="176" y2="60" stroke="#e01020" stroke-width="3" stroke-linecap="round" />
+  <line x1="176" y1="70" x2="183" y2="70" stroke="#e01020" stroke-width="3" stroke-linecap="round" />
+  <path d="M78 96 Q84 108 78 116 Q72 108 78 96 Z" fill="#34c4b5" />
+</svg>

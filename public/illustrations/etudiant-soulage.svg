@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Etudiant soulage tenant une cle">
+  <circle cx="120" cy="120" r="110" fill="#e3f5f3" />
+  <rect x="88" y="118" width="64" height="92" rx="30" fill="#16191b" />
+  <circle cx="120" cy="86" r="32" fill="#16191b" />
+  <g transform="rotate(-18 168 150)">
+    <rect x="160" y="145" width="44" height="10" rx="5" fill="#006a6f" />
+    <circle cx="160" cy="150" r="12" fill="none" stroke="#006a6f" stroke-width="6" />
+    <rect x="196" y="145" width="6" height="14" fill="#006a6f" />
+    <rect x="188" y="145" width="6" height="10" fill="#006a6f" />
+  </g>
+  <g transform="rotate(10 190 70)">
+    <circle cx="190" cy="70" r="24" fill="none" stroke="#006a6f" stroke-width="4" />
+    <path d="M180 70 l7 7 l14 -14" fill="none" stroke="#006a6f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>
