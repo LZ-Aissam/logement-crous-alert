@@ -58,9 +58,7 @@
         return;
       }
 
-      result.innerHTML = data.issueUrl
-        ? 'Confirmation envoyee. <a href="' + data.issueUrl + '" target="_blank" rel="noopener">Suivre le traitement ici</a>.'
-        : "Confirmation envoyee.";
+      result.textContent = "Confirmation envoyee.";
       result.className = "success";
     } catch (err) {
       result.textContent = "Une erreur est survenue, reessaie dans quelques minutes.";

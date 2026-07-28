@@ -71,9 +71,7 @@
         return;
       }
 
-      result.innerHTML = data.issueUrl
-        ? 'Recherche soumise. <a href="' + data.issueUrl + '" target="_blank" rel="noopener">Suivre le traitement ici</a>.'
-        : "Recherche soumise.";
+      result.textContent = "Recherche soumise.";
       result.className = "success";
       form.reset();
     } catch (err) {
