@@ -77,7 +77,7 @@ test("valid payload creates a GitHub issue matching the Issue Form contract", as
     sentBody.body,
     /### Mots-clés \(résidence, type de logement\.\.\.\) - optionnel\n\n_No response_\n/
   );
-  assert.match(sentBody.body, /### Email\(s\) de notification - optionnel\n\na@example\.com\n/);
+  assert.match(sentBody.body, /### Email de notification\n\na@example\.com\n/);
 });
 
 test("GitHub API failure returns 502", async (t) => {

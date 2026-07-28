@@ -13,13 +13,13 @@ def test_parse_issue_form_body_all_fields_filled():
         "### Nom de la recherche\n\nBrest\n\n"
         "### Ville\n\nBrest 29200\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\nKergoat, studio\n\n"
-        "### Email(s) de notification - optionnel\n\na@example.com, b@example.com\n"
+        "### Email de notification\n\na@example.com, b@example.com\n"
     )
     fields = mod.parse_issue_form_body(body)
     assert fields["Nom de la recherche"] == "Brest"
     assert fields["Ville"] == "Brest 29200"
     assert fields["Mots-clés (résidence, type de logement...) - optionnel"] == "Kergoat, studio"
-    assert fields["Email(s) de notification - optionnel"] == "a@example.com, b@example.com"
+    assert fields["Email de notification"] == "a@example.com, b@example.com"
 
 
 def test_parse_issue_form_body_empty_optional_fields():
@@ -27,12 +27,12 @@ def test_parse_issue_form_body_empty_optional_fields():
         "### Nom de la recherche\n\nRennes\n\n"
         "### Ville\n\nRennes\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     fields = mod.parse_issue_form_body(body)
     assert fields["Nom de la recherche"] == "Rennes"
     assert fields["Mots-clés (résidence, type de logement...) - optionnel"] is None
-    assert fields["Email(s) de notification - optionnel"] is None
+    assert fields["Email de notification"] is None
 
 
 def test_geocode_city_returns_lon_lat(monkeypatch):
@@ -202,7 +202,7 @@ def test_main_adds_search_successfully(tmp_path, monkeypatch, capsys):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\nKergoat\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -235,7 +235,7 @@ def test_main_rejects_duplicate_name(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nbrest\n\n"
         "### Ville\n\nBrest\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
 
@@ -253,7 +253,7 @@ def test_main_reports_error_when_city_not_found(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nTest\n\n"
         "### Ville\n\nVilleInexistante\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(
@@ -274,7 +274,7 @@ def test_main_warns_when_keyword_not_found_but_still_adds(tmp_path, monkeypatch,
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\nTypo123\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -302,7 +302,7 @@ def test_main_aborts_on_invalid_existing_searches_json(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
 
@@ -319,7 +319,7 @@ def test_main_still_succeeds_when_discovery_fetch_fails(tmp_path, monkeypatch, c
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -342,7 +342,7 @@ def test_main_requires_name_and_city(tmp_path, monkeypatch):
         "### Nom de la recherche\n\n_No response_\n\n"
         "### Ville\n\n_No response_\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     assert mod.main() == 1
@@ -419,7 +419,7 @@ def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\npas-un-email\n"
+        "### Email de notification\n\npas-un-email\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -437,7 +437,7 @@ def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -463,7 +463,7 @@ def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\na@example.com\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -509,7 +509,7 @@ def test_main_rejects_duplicate_name_already_pending(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nbrest\n\n"
         "### Ville\n\nBrest\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
 
@@ -530,7 +530,7 @@ def test_main_requires_smtp_env_when_email_submitted(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\na@example.com\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -554,7 +554,7 @@ def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch,
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\na@example.com, b@example.com\n"
+        "### Email de notification\n\na@example.com, b@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -585,7 +585,7 @@ def test_main_aborts_on_invalid_existing_pending_searches_json(tmp_path, monkeyp
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
 
@@ -608,7 +608,7 @@ def test_main_dedupes_case_insensitive_emails_sends_one_confirmation(tmp_path, m
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n"
+        "### Email de notification\n\n"
         "a@example.com, A@EXAMPLE.com, a@Example.Com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
@@ -637,7 +637,7 @@ def test_main_rejects_more_than_three_distinct_emails(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n"
+        "### Email de notification\n\n"
         "a@example.com, b@example.com, c@example.com, d@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
@@ -657,7 +657,7 @@ def test_main_uses_extent_instead_of_geocoding_when_valid(tmp_path, monkeypatch)
         "### Nom de la recherche\n\nRésidence Kergoat\n\n"
         "### Ville\n\nRésidence Kergoat Brest\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\n_No response_\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
         "-4.5689169_48.4595521_-4.4278311_48.3572972\n\n"
         "### Prix maximum - optionnel\n\n_No response_\n\n"
@@ -688,7 +688,7 @@ def test_main_applies_price_area_occupation_prm_filters(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\n_No response_\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\n400\n\n"
         "### Surface minimum en m2 - optionnel\n\n15\n\n"
@@ -721,7 +721,7 @@ def test_main_accepts_english_occupation_mode_values_from_the_public_form(tmp_pa
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\n_No response_\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\n_No response_\n\n"
         "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
@@ -748,7 +748,7 @@ def test_main_rejects_non_numeric_max_price(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\n_No response_\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\npas un nombre\n\n"
         "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
@@ -770,7 +770,7 @@ def test_main_ignores_unrecognized_occupation_mode_label(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\n_No response_\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\n_No response_\n\n"
         "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
@@ -796,7 +796,7 @@ def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email(s) de notification - optionnel\n\n_No response_\n"
+        "### Email de notification\n\n_No response_\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))

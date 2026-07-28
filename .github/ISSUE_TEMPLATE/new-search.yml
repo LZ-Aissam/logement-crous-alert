@@ -33,14 +33,13 @@ body:
   - type: input
     id: emails
     attributes:
-      label: Email(s) de notification - optionnel
+      label: Email de notification
       description: >-
-        Separes par des virgules (max 3). Laisse vide pour utiliser l'email par
-        defaut. Chaque adresse recevra un email de confirmation a valider avant de
-        recevoir des alertes.
+        Une seule adresse. Elle recevra un email de confirmation a valider avant
+        de recevoir des alertes.
       placeholder: toi@example.com
     validations:
-      required: false
+      required: true
   - type: input
     id: extent
     attributes:
