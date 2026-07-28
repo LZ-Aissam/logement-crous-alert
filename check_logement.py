@@ -203,15 +203,28 @@ def format_email_body(
 
 
 def send_email(
-    subject: str, body: str, to_addrs: list[str], smtp_user: str, smtp_password: str
+    subject: str,
+    body: str,
+    to_addrs: list[str],
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    from_email: str,
 ) -> None:
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
-    msg["From"] = smtp_user
+    msg["From"] = from_email
     msg["To"] = ", ".join(to_addrs)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=FETCH_TIMEOUT) as server:
-        server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, to_addrs, msg.as_string())
+    if smtp_port == 465:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=FETCH_TIMEOUT) as server:
+            server.login(smtp_user, smtp_password)
+            server.sendmail(from_email, to_addrs, msg.as_string())
+    else:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=FETCH_TIMEOUT) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(from_email, to_addrs, msg.as_string())
 
 
 def _require_env(name: str) -> str:

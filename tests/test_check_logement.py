@@ -239,6 +239,7 @@ class _FakeSMTP:
         self.port = port
         self.logged_in = None
         self.sent = None
+        self.starttls_called = False
         _FakeSMTP.instances.append(self)
 
     def __enter__(self):
@@ -247,6 +248,9 @@ class _FakeSMTP:
     def __exit__(self, *exc):
         return False
 
+    def starttls(self):
+        self.starttls_called = True
+
     def login(self, user, password):
         self.logged_in = (user, password)
 
@@ -254,7 +258,7 @@ class _FakeSMTP:
         self.sent = (from_addr, to_addrs, msg)
 
 
-def test_send_email_logs_in_and_sends(monkeypatch):
+def test_send_email_uses_ssl_for_port_465(monkeypatch):
     _FakeSMTP.instances.clear()
     monkeypatch.setattr(mod.smtplib, "SMTP_SSL", _FakeSMTP)
 
@@ -262,22 +266,51 @@ def test_send_email_logs_in_and_sends(monkeypatch):
         subject="Subject",
         body="Body text",
         to_addrs=["a@example.com", "b@example.com"],
-        smtp_user="me@gmail.com",
-        smtp_password="app-password",
+        smtp_host="smtp-relay.brevo.com",
+        smtp_port=465,
+        smtp_user="brevo-login",
+        smtp_password="brevo-password",
+        from_email="alerts@example.com",
     )
 
     smtp = _FakeSMTP.instances[0]
-    assert smtp.host == "smtp.gmail.com"
+    assert smtp.host == "smtp-relay.brevo.com"
     assert smtp.port == 465
-    assert smtp.logged_in == ("me@gmail.com", "app-password")
+    assert smtp.starttls_called is False
+    assert smtp.logged_in == ("brevo-login", "brevo-password")
     from_addr, to_addrs, msg = smtp.sent
-    assert from_addr == "me@gmail.com"
+    assert from_addr == "alerts@example.com"
     assert to_addrs == ["a@example.com", "b@example.com"]
     assert "Subject" in msg
-    # Decode the message properly to verify actual body content
     msg_obj = message_from_string(msg)
+    assert msg_obj["From"] == "alerts@example.com"
     decoded_body = msg_obj.get_payload(decode=True).decode("utf-8")
     assert "Body text" in decoded_body
+
+
+def test_send_email_uses_starttls_for_non_ssl_port(monkeypatch):
+    _FakeSMTP.instances.clear()
+    monkeypatch.setattr(mod.smtplib, "SMTP", _FakeSMTP)
+
+    mod.send_email(
+        subject="Subject",
+        body="Body text",
+        to_addrs=["a@example.com"],
+        smtp_host="smtp-relay.brevo.com",
+        smtp_port=587,
+        smtp_user="brevo-login",
+        smtp_password="brevo-password",
+        from_email="alerts@example.com",
+    )
+
+    smtp = _FakeSMTP.instances[0]
+    assert smtp.host == "smtp-relay.brevo.com"
+    assert smtp.port == 587
+    assert smtp.starttls_called is True
+    assert smtp.logged_in == ("brevo-login", "brevo-password")
+    from_addr, to_addrs, msg = smtp.sent
+    assert from_addr == "alerts@example.com"
+    assert to_addrs == ["a@example.com"]
 
 
 def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatch):
