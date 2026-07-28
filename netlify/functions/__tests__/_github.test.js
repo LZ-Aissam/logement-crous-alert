@@ -7,7 +7,7 @@ const {
   createRateLimiter,
   createGithubIssue,
   clientIp,
-} = require("./_github");
+} = require("../_github");
 
 test("isHoneypotFilled returns true when website field is non-empty", () => {
   assert.equal(isHoneypotFilled({ website: "http://spam.example" }), true);
