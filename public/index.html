@@ -170,9 +170,10 @@
         }
       });
     }, { threshold: 0.15 });
-    revealEls.forEach((el) => io.observe(el));
-  } else {
-    document.querySelectorAll(".reveal").forEach((el) => el.classList.add("is-visible"));
+    revealEls.forEach((el) => {
+      el.classList.add("reveal-pending");
+      io.observe(el);
+    });
   }
 
   const form = document.getElementById("search-form");
