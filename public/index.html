@@ -294,7 +294,9 @@
     debounceTimer = setTimeout(async () => {
       const thisRequest = ++requestToken;
       try {
-        const params = new URLSearchParams({ q: query, limit: "8", lang: "fr" });
+        // the proxy exposes no country filter and 502s on the lat/lon proximity bias, so over-fetch
+        // and drop non-French places below; 25 leaves enough margin after filtering to fill the list
+        const params = new URLSearchParams({ q: query, limit: "25", lang: "fr" });
         [
           "amenity:college", "amenity:library", "amenity:school", "amenity:university",
           "place:country", "place:region", "place:state", "place:city", "place:town",
@@ -308,7 +310,10 @@
         }
         const data = await response.json();
         if (thisRequest !== requestToken) return; // superseded while awaiting response.json()
-        renderSuggestions(data.features || []);
+        // "France" is the only country a CROUS covers -- it also tags the DOM-TOM (Reunion,
+        // Antilles-Guyane, Nouvelle-Caledonie), which do have their own CROUS, so they stay in
+        const inFrance = (data.features || []).filter((f) => (f.properties || {}).country === "France");
+        renderSuggestions(inFrance.slice(0, 8));
       } catch (err) {
         if (thisRequest === requestToken) clearSuggestions();
       }

@@ -184,7 +184,8 @@ elles avaient été soumises à la main.
 Le champ "Ville, résidence ou lieu d'étude" propose des suggestions en direct (ville,
 résidence, école...) via le même service que le site CROUS officiel — sélectionner une
 suggestion cible précisément le bon endroit plutôt qu'une zone approximative autour
-d'une ville. Les filtres prix/surface/cohabitation/PMR sont transmis tels quels au
+d'une ville. Seuls les lieux situés en France sont proposés (DOM-TOM inclus, ils ont
+leurs propres CROUS). Les filtres prix/surface/cohabitation/PMR sont transmis tels quels au
 site CROUS, qui applique le filtrage lui-même avant que le robot ne récupère les
 résultats.
 
