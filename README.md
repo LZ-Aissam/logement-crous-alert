@@ -88,6 +88,15 @@ recherche en ouvrant une Issue :
      ci-dessus.
    - **Email(s) de notification** (optionnel) : séparés par des virgules ; laisse vide
      pour utiliser `ALERT_EMAIL`.
+   - **Zone géographique précise** (optionnel) : normalement laissé vide pour une
+     Issue manuelle — rempli automatiquement par le formulaire public quand une
+     suggestion est sélectionnée.
+   - **Prix maximum** (optionnel) : en euros.
+   - **Surface minimum en m²** (optionnel).
+   - **Type de cohabitation** (optionnel) : `individuel`, `couple`, `colocation`,
+     séparés par des virgules.
+   - **Logement adapté PMR** (optionnel) : écris `oui` pour filtrer sur
+     l'accessibilité PMR.
 4. Soumets l'issue.
 
 À noter : la zone de recherche créée via ce formulaire a une **taille fixe** (environ
@@ -171,6 +180,13 @@ place, via trois Netlify Functions (`netlify/functions/create-search.js`,
 `confirm-email.js` et `unsubscribe.js`). Le backend Python et les
 workflows GitHub Actions ne changent pas : ils traitent ces Issues exactement comme si
 elles avaient été soumises à la main.
+
+Le champ "Ville, résidence ou lieu d'étude" propose des suggestions en direct (ville,
+résidence, école...) via le même service que le site CROUS officiel — sélectionner une
+suggestion cible précisément le bon endroit plutôt qu'une zone approximative autour
+d'une ville. Les filtres prix/surface/cohabitation/PMR sont transmis tels quels au
+site CROUS, qui applique le filtrage lui-même avant que le robot ne récupère les
+résultats.
 
 1. Crée un compte Netlify et lie-le à ce dépôt GitHub (Netlify détecte automatiquement
    `netlify.toml` : `public/` comme dossier publié, `netlify/functions/` comme dossier
