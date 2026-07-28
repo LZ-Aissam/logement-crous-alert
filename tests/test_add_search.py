@@ -389,8 +389,11 @@ def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
 def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
@@ -406,7 +409,7 @@ def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(
             (subject, to_addrs, body)
         ),
     )
@@ -451,11 +454,14 @@ def test_main_rejects_duplicate_name_already_pending(tmp_path, monkeypatch):
     assert exit_code == 1
 
 
-def test_main_requires_gmail_env_when_email_submitted(tmp_path, monkeypatch):
+def test_main_requires_smtp_env_when_email_submitted(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
-    monkeypatch.delenv("GMAIL_ADDRESS", raising=False)
-    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_PORT", raising=False)
+    monkeypatch.delenv("SMTP_USER", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    monkeypatch.delenv("FROM_EMAIL", raising=False)
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
@@ -474,8 +480,11 @@ def test_main_requires_gmail_env_when_email_submitted(tmp_path, monkeypatch):
 def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
@@ -488,7 +497,7 @@ def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch,
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
 
-    def fake_send_email(subject, body, to_addrs, smtp_user, smtp_password):
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
         if to_addrs == ["a@example.com"]:
             raise Exception("smtp boom")
 
@@ -525,8 +534,11 @@ def test_main_aborts_on_invalid_existing_pending_searches_json(tmp_path, monkeyp
 def test_main_dedupes_case_insensitive_emails_sends_one_confirmation(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
@@ -543,7 +555,7 @@ def test_main_dedupes_case_insensitive_emails_sends_one_confirmation(tmp_path, m
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(to_addrs),
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(to_addrs),
     )
 
     exit_code = mod.main()

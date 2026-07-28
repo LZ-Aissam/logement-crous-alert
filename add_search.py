@@ -254,8 +254,11 @@ def main() -> int:
         )
 
     if emails:
-        smtp_user = clog._require_env("GMAIL_ADDRESS")
-        smtp_password = clog._require_env("GMAIL_APP_PASSWORD")
+        smtp_host = clog._require_env("SMTP_HOST")
+        smtp_port = int(clog._require_env("SMTP_PORT"))
+        smtp_user = clog._require_env("SMTP_USER")
+        smtp_password = clog._require_env("SMTP_PASSWORD")
+        from_email = clog._require_env("FROM_EMAIL")
         pending_emails: dict[str, str] = {}
         failed_emails: list[str] = []
         for email in emails:
@@ -267,8 +270,11 @@ def main() -> int:
                     subject=f"Confirme ton adresse pour la recherche {name!r}",
                     body=confirmation_body,
                     to_addrs=[email],
+                    smtp_host=smtp_host,
+                    smtp_port=smtp_port,
                     smtp_user=smtp_user,
                     smtp_password=smtp_password,
+                    from_email=from_email,
                 )
             except Exception as exc:
                 print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")
