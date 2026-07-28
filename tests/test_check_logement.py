@@ -337,15 +337,17 @@ def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatc
         mod,
         "send_email",
         lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(
-            (subject, to_addrs)
+            (subject, to_addrs, smtp_host, smtp_port, smtp_user, from_email)
         ),
     )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    assert sent == [(sent[0][0], ["x@example.com"])]
+    assert len(sent) == 1
+    assert sent[0][1] == ["x@example.com"]
     assert "Brest" in sent[0][0]
+    assert sent[0][2:] == ("smtp.example.com", 587, "smtp-user", "me@example.com")
     seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
     assert seen == {"Brest": ["1"]}
 
