@@ -319,8 +319,11 @@ def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatc
         json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["x@example.com"]}]),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -333,7 +336,7 @@ def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatc
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(
             (subject, to_addrs)
         ),
     )
@@ -358,8 +361,11 @@ def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, mo
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -369,7 +375,7 @@ def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, mo
         lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
     )
 
-    def fake_send_email(subject, body, to_addrs, smtp_user, smtp_password):
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
         if "Rennes" in subject:
             raise mod.smtplib.SMTPException("boom")
 
@@ -389,8 +395,11 @@ def test_main_no_new_listings_sends_no_email(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     (tmp_path / "seen.json").write_text(json.dumps({"Brest": ["1"]}), encoding="utf-8")
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -417,8 +426,11 @@ def test_main_broken_search_does_not_block_others(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     def fake_fetch(url):
@@ -453,8 +465,11 @@ def test_main_shape_drift_isolates_broken_search(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: url)
@@ -484,8 +499,11 @@ def test_main_unions_seen_ids_instead_of_replacing(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     (tmp_path / "seen.json").write_text(json.dumps({"Brest": ["99"]}), encoding="utf-8")
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -509,8 +527,11 @@ def test_main_all_searches_fail_returns_error_code(tmp_path, monkeypatch):
         json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     def fake_fetch(url):
@@ -531,8 +552,11 @@ def test_main_malformed_searches_json_returns_error(tmp_path, monkeypatch, capsy
         '[{"name": "Brest", "url": "https://example.com/brest",}]',  # trailing comma
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     assert mod.main() == 1
@@ -547,8 +571,11 @@ def test_main_uses_alert_email_default_when_search_has_no_emails(tmp_path, monke
         json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -561,7 +588,7 @@ def test_main_uses_alert_email_default_when_search_has_no_emails(tmp_path, monke
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_user, smtp_password: captured_to_addrs.append(
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: captured_to_addrs.append(
             to_addrs
         ),
     )
@@ -578,8 +605,11 @@ def test_main_missing_env_var_returns_error(tmp_path, monkeypatch):
         json.dumps([{"name": "Brest", "url": "https://example.com/brest"}]),
         encoding="utf-8",
     )
-    monkeypatch.delenv("GMAIL_ADDRESS", raising=False)
-    monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_PORT", raising=False)
+    monkeypatch.delenv("SMTP_USER", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    monkeypatch.delenv("FROM_EMAIL", raising=False)
     monkeypatch.delenv("ALERT_EMAIL", raising=False)
 
     with pytest.raises(SystemExit):
@@ -624,8 +654,11 @@ def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -644,7 +677,7 @@ def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append(body),
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(body),
     )
 
     exit_code = mod.main()
@@ -768,8 +801,11 @@ def test_main_sends_individual_email_per_recipient_with_personalized_unsubscribe
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
     monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
     monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
@@ -784,7 +820,7 @@ def test_main_sends_individual_email_per_recipient_with_personalized_unsubscribe
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_user, smtp_password: sent.append((to_addrs, body)),
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append((to_addrs, body)),
     )
 
     exit_code = mod.main()
@@ -814,8 +850,11 @@ def test_main_marks_seen_when_at_least_one_recipient_succeeds(tmp_path, monkeypa
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_APP_PASSWORD", "app-password")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     monkeypatch.setenv("ALERT_EMAIL", "default@example.com")
 
     monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
@@ -825,7 +864,7 @@ def test_main_marks_seen_when_at_least_one_recipient_succeeds(tmp_path, monkeypa
         lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
     )
 
-    def fake_send_email(subject, body, to_addrs, smtp_user, smtp_password):
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
         if to_addrs == ["a@example.com"]:
             raise mod.smtplib.SMTPException("boom")
 

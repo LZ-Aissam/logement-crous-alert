@@ -236,8 +236,11 @@ def _require_env(name: str) -> str:
 
 
 def main() -> int:
-    smtp_user = _require_env("GMAIL_ADDRESS")
-    smtp_password = _require_env("GMAIL_APP_PASSWORD")
+    smtp_host = _require_env("SMTP_HOST")
+    smtp_port = int(_require_env("SMTP_PORT"))
+    smtp_user = _require_env("SMTP_USER")
+    smtp_password = _require_env("SMTP_PASSWORD")
+    from_email = _require_env("FROM_EMAIL")
     default_email = _require_env("ALERT_EMAIL")
 
     try:
@@ -275,7 +278,10 @@ def main() -> int:
                 unsubscribe_url = build_unsubscribe_url(name, recipient)
                 try:
                     body = format_email_body(name, new_items, url, unsubscribe_url)
-                    send_email(subject, body, [recipient], smtp_user, smtp_password)
+                    send_email(
+                        subject, body, [recipient],
+                        smtp_host, smtp_port, smtp_user, smtp_password, from_email,
+                    )
                 except Exception as exc:
                     print(f"[ERROR] {name}: failed to send email to {recipient}: {exc}", file=sys.stderr)
                     continue
