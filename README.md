@@ -21,6 +21,11 @@ Actions — pas besoin de garder un PC allumé.
    - `GMAIL_APP_PASSWORD` : le mot de passe d'application généré à l'étape 2
    - `ALERT_EMAIL` : l'email destinataire par défaut, utilisé pour toute recherche
      dans `searches.json` qui n'a pas son propre champ `emails`
+   - `UNSUBSCRIBE_SECRET` : une chaine aleatoire (ex. generee avec
+     `python -c "import secrets; print(secrets.token_urlsafe(32))"`), utilisee pour
+     signer les liens de desinscription dans les emails d'alerte. Optionnel : sans ce
+     secret, les emails sont envoyes normalement, simplement sans lien de
+     desinscription.
 
 4. **Éditer `searches.json`** pour ajouter/retirer des recherches (ou passer par une
    Issue GitHub, voir plus bas, si tu préfères ne pas toucher au fichier à la main).
@@ -130,13 +135,31 @@ GitHub, y compris dans l'historique Git une fois l'adresse retirée du fichier c
 (Les codes de confirmation eux-mêmes ne sont jamais stockés en clair — seule leur
 empreinte cryptographique l'est.)
 
+### Se désinscrire d'une recherche
+
+Chaque email d'alerte contient, en pied de message, un lien de désinscription
+personnalisé (nom de la recherche, adresse email et jeton de sécurité). En cliquant
+dessus, tu retires ton adresse de **cette recherche précise** — les autres recherches
+auxquelles tu es éventuellement abonné ne sont pas affectées. Si tu étais la dernière
+adresse inscrite sur cette recherche, elle est supprimée entièrement.
+
+Comme pour la confirmation d'email, ce lien ouvre soit une Issue GitHub pré-remplie
+(compte GitHub requis), soit une simple page web si le formulaire public Netlify est
+configuré (voir plus bas) — le bot choisit automatiquement le bon format selon la
+configuration du dépôt, rien à faire de ton côté.
+
+Ce lien n'apparaît dans l'email que si le secret `UNSUBSCRIBE_SECRET` est configuré
+(voir étape 3 ci-dessus) ; sans lui, les emails d'alerte fonctionnent comme avant,
+simplement sans lien de désinscription.
+
 ## Formulaire public sans compte GitHub (optionnel, via Netlify)
 
 Par défaut, créer une recherche ou confirmer un email nécessite un compte GitHub (pour
 soumettre les Issue Forms ci-dessus). Pour ouvrir ça à n'importe qui sans compte, tu
-peux déployer les pages `public/index.html` (nouvelle recherche) et `public/confirmer.html` sur
-Netlify — elles créent les mêmes Issues GitHub à ta place, via deux Netlify Functions
-(`netlify/functions/create-search.js` et `confirm-email.js`). Le backend Python et les
+peux déployer les pages `public/index.html` (nouvelle recherche), `public/confirmer.html`
+et `public/desabonnement.html` sur Netlify — elles créent les mêmes Issues GitHub à ta
+place, via trois Netlify Functions (`netlify/functions/create-search.js`,
+`confirm-email.js` et `unsubscribe.js`). Le backend Python et les
 workflows GitHub Actions ne changent pas : ils traitent ces Issues exactement comme si
 elles avaient été soumises à la main.
 
@@ -150,12 +173,15 @@ elles avaient été soumises à la main.
    ajoute :
    - `GITHUB_PAT` : le token créé à l'étape 2
    - `GITHUB_REPOSITORY` : `LZ-Aissam/logement-crous-alert`
-4. Ajoute un secret sur le dépôt GitHub (Settings > Secrets and variables > Actions) :
+4. Ajoute ces secrets sur le dépôt GitHub (Settings > Secrets and variables > Actions) :
    - `CONFIRMATION_BASE_URL` : l'URL de la page de confirmation sur ton site Netlify,
      ex. `https://ton-site.netlify.app/confirmer.html`
+   - `UNSUBSCRIBE_BASE_URL` (optionnel, nécessite `UNSUBSCRIBE_SECRET` déjà configuré à
+     l'étape 3 de la mise en place) : l'URL de la page de désinscription, ex.
+     `https://ton-site.netlify.app/desabonnement.html`
 
-   Sans ce secret, les liens de confirmation continuent de pointer vers GitHub comme
-   avant — rien ne casse si tu ne déploies jamais Netlify.
+   Sans ces secrets, les liens de confirmation et de désinscription continuent de
+   pointer vers GitHub comme avant — rien ne casse si tu ne déploies jamais Netlify.
 5. Le formulaire GitHub direct (section ci-dessus) continue de fonctionner en
    parallèle : c'est une alternative, pas un remplacement.
 
