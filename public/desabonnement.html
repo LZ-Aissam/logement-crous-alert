@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Se desinscrire - Alerte logement CROUS</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; }
+  #result { margin-top: 1.5rem; padding: 1rem; border-radius: 4px; }
+  #result.success { background: #e6f4ea; }
+  #result.error { background: #fce8e6; }
+  #result.hidden { display: none; }
+  .honeypot { position: absolute; left: -9999px; top: -9999px; }
+</style>
+</head>
+<body>
+<h1>Se desinscrire</h1>
+<p id="intro">Clique sur le bouton ci-dessous pour ne plus recevoir d'alertes pour cette recherche.</p>
+
+<div class="honeypot" aria-hidden="true">
+  <label for="website">Laisse ce champ vide</label>
+  <input id="website" tabindex="-1" autocomplete="off">
+</div>
+
+<button id="unsubscribe-button" type="button">Se desinscrire</button>
+<div id="result" class="hidden"></div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const search = params.get("search");
+  const email = params.get("email");
+  const token = params.get("token");
+  const button = document.getElementById("unsubscribe-button");
+  const result = document.getElementById("result");
+  const intro = document.getElementById("intro");
+  const website = document.getElementById("website");
+
+  if (!search || !email || !token) {
+    button.disabled = true;
+    result.textContent = "Lien invalide : informations manquantes dans l'URL.";
+    result.className = "error";
+  } else {
+    intro.textContent = 'Se desinscrire de la recherche "' + search + '" pour l\'adresse ' + email + ' ?';
+  }
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    result.className = "hidden";
+
+    try {
+      const response = await fetch("/.netlify/functions/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ search, email, token, website: website.value }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        result.textContent = data.error || "Une erreur est survenue.";
+        result.className = "error";
+        button.disabled = false;
+        return;
+      }
+
+      result.textContent = "Desinscription envoyee.";
+      result.className = "success";
+    } catch (err) {
+      result.textContent = "Une erreur est survenue, reessaie dans quelques minutes.";
+      result.className = "error";
+      button.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
