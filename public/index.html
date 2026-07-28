@@ -224,11 +224,14 @@
   let debounceTimer = null;
   let activeIndex = -1;
   let currentSuggestions = [];
+  let requestToken = 0;
 
   function clearSuggestions() {
+    requestToken++; // invalidate any in-flight request so a late response can't repopulate the list
     suggestionsList.innerHTML = "";
     suggestionsList.classList.add("d-none");
     cityInput.setAttribute("aria-expanded", "false");
+    cityInput.setAttribute("aria-activedescendant", "");
     currentSuggestions = [];
     activeIndex = -1;
   }
@@ -236,28 +239,38 @@
   function renderSuggestions(features) {
     currentSuggestions = features;
     activeIndex = -1;
+    suggestionsList.innerHTML = "";
     if (!features.length) {
       clearSuggestions();
       return;
     }
-    suggestionsList.innerHTML = features
-      .map((f, i) => {
-        const p = f.properties || {};
-        const context = [p.postcode, p.state].filter(Boolean).join(" - ");
-        const label = context ? `${p.name} (${context})` : p.name;
-        return `<li class="list-group-item list-group-item-action" role="option" id="suggestion-${i}" data-index="${i}">${label}</li>`;
-      })
-      .join("");
+    features.forEach((f, i) => {
+      const p = f.properties || {};
+      const context = [p.postcode, p.state].filter(Boolean).join(" - ");
+      const label = context ? `${p.name} (${context})` : p.name;
+      const li = document.createElement("li");
+      li.className = "list-group-item list-group-item-action";
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", "false");
+      li.id = `suggestion-${i}`;
+      li.dataset.index = String(i);
+      li.textContent = label; // textContent, not innerHTML -- untrusted API data must never be parsed as HTML
+      suggestionsList.appendChild(li);
+    });
     suggestionsList.classList.remove("d-none");
     cityInput.setAttribute("aria-expanded", "true");
   }
 
   function updateActiveOption() {
+    let activeOption = null;
     Array.from(suggestionsList.children).forEach((li, i) => {
-      li.classList.toggle("active", i === activeIndex);
+      const isActive = i === activeIndex;
+      li.classList.toggle("active", isActive);
+      li.setAttribute("aria-selected", isActive ? "true" : "false");
+      if (isActive) activeOption = li;
     });
-    const active = suggestionsList.children[activeIndex];
-    if (active) active.scrollIntoView({ block: "nearest" });
+    cityInput.setAttribute("aria-activedescendant", activeOption ? activeOption.id : "");
+    if (activeOption) activeOption.scrollIntoView({ block: "nearest" });
   }
 
   function selectSuggestion(index) {
@@ -279,6 +292,7 @@
       return;
     }
     debounceTimer = setTimeout(async () => {
+      const thisRequest = ++requestToken;
       try {
         const params = new URLSearchParams({ q: query, limit: "8", lang: "fr" });
         [
@@ -287,14 +301,16 @@
           "place:village", "place:house", "landuse:residential",
         ].forEach((tag) => params.append("osm_tag", tag));
         const response = await fetch("https://trouverunlogement.lescrous.fr/photon/api?" + params.toString());
+        if (thisRequest !== requestToken) return; // a newer request superseded this one
         if (!response.ok) {
           clearSuggestions();
           return;
         }
         const data = await response.json();
+        if (thisRequest !== requestToken) return; // superseded while awaiting response.json()
         renderSuggestions(data.features || []);
       } catch (err) {
-        clearSuggestions();
+        if (thisRequest === requestToken) clearSuggestions();
       }
     }, 300);
   });
