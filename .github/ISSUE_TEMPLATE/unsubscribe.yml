@@ -1,0 +1,26 @@
+name: Desinscription des alertes
+description: Retire une adresse email des notifications d'une recherche
+title: "[Desinscription]"
+labels: ["unsubscribe"]
+body:
+  - type: input
+    id: search
+    attributes:
+      label: Nom de la recherche
+      description: Le nom exact de la recherche indique dans l'email d'alerte
+    validations:
+      required: true
+  - type: input
+    id: email
+    attributes:
+      label: Email
+      description: L'adresse email a retirer de cette recherche
+    validations:
+      required: true
+  - type: input
+    id: token
+    attributes:
+      label: Jeton
+      description: Le jeton fourni dans le lien de desinscription de l'email
+    validations:
+      required: true
