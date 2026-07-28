@@ -6,6 +6,7 @@
 <title>Alerte logement CROUS : ne rate plus jamais un logement</title>
 <meta name="description" content="Un robot gratuit surveille trouverunlogement.lescrous.fr pour toi et t'alerte par email des qu'un logement correspond a ta recherche.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -179,14 +180,18 @@
             </div>
 
             <div class="mb-4">
-              <label for="emails" class="form-label fw-semibold">Email(s) de notification - optionnel (max 3, séparés par des virgules)</label>
-              <input id="emails" name="emails" placeholder="toi@example.com" class="form-control form-control-lg">
+              <label for="emails" class="form-label fw-semibold">Email de notification</label>
+              <input id="emails" name="emails" type="email" required
+                     placeholder="toi@example.com" class="form-control form-control-lg">
+              <div class="form-text">Tu recevras un email de confirmation a valider avant les alertes.</div>
             </div>
 
             <div class="honeypot" aria-hidden="true">
               <label for="website">Laisse ce champ vide</label>
               <input id="website" name="website" tabindex="-1" autocomplete="off">
             </div>
+
+            <div class="cf-turnstile mb-3" data-sitekey="1x00000000000000000000AA"></div>
 
             <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill">Créer la recherche</button>
           </form>
@@ -365,6 +370,7 @@
       keywords: form.keywords.value,
       emails: form.emails.value,
       website: form.website.value,
+      turnstileToken: (form["cf-turnstile-response"] || {}).value || "",
       extent: extentInput.value,
       maxPrice: form.maxPrice.value,
       minArea: form.minArea.value,
@@ -385,6 +391,7 @@
       if (!response.ok) {
         result.textContent = data.error || "Une erreur est survenue.";
         result.className = "alert alert-danger mt-4 mb-0";
+        if (window.turnstile) window.turnstile.reset();
         return;
       }
 
@@ -394,6 +401,7 @@
     } catch (err) {
       result.textContent = "Une erreur est survenue, réessaie dans quelques minutes.";
       result.className = "alert alert-danger mt-4 mb-0";
+      if (window.turnstile) window.turnstile.reset();
     }
   });
 </script>
