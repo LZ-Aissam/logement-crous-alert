@@ -3,43 +3,130 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nouvelle recherche - Alerte logement CROUS</title>
+<title>Alerte logement CROUS - Ne rate plus jamais un logement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
-  label { display: block; margin-top: 1rem; font-weight: 600; }
-  input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
-  button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; }
-  #result { margin-top: 1.5rem; padding: 1rem; border-radius: 4px; }
-  #result.success { background: #e6f4ea; }
-  #result.error { background: #fce8e6; }
-  #result.hidden { display: none; }
-  .honeypot { position: absolute; left: -9999px; top: -9999px; }
+  .hero {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 3rem 0 2rem;
+  }
+  .hero-text { flex: 1 1 320px; }
+  .hero-text h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0.6em 0 0.5em; }
+  .hero-text p { font-size: 1.1rem; }
+  .hero img { flex: 0 0 220px; width: 220px; height: 220px; }
+
+  .constat {
+    background: var(--color-grey);
+    border-left: 4px solid var(--color-red);
+    padding: 1.5rem;
+    border-radius: 4px;
+    margin: 3rem 0;
+  }
+  .constat .eyebrow { font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.08em; color: var(--color-red); }
+
+  .solution { display: flex; align-items: center; gap: 2rem; margin: 3rem 0; }
+  .solution img { flex: 0 0 200px; width: 200px; height: 200px; }
+  .steps { flex: 1 1 320px; list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  .steps li { counter-increment: step; padding-left: 2.75rem; position: relative; margin-bottom: 1.25rem; }
+  .steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    width: 2rem; height: 2rem;
+    background: var(--front-greenwater); color: var(--paper);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 0.95rem;
+  }
+
+  .trust { font-size: 0.95rem; color: #4a4a4a; margin: 2rem 0; }
+  .trust ul { padding-left: 1.25rem; }
+
+  @media (max-width: 700px) {
+    .hero, .solution { flex-direction: column; text-align: center; }
+  }
 </style>
 </head>
 <body>
-<h1>Nouvelle recherche</h1>
-<p>Surveille une ville sur trouverunlogement.lescrous.fr et recois un email des qu'un logement apparait.</p>
-<form id="search-form">
-  <label for="name">Nom de la recherche</label>
-  <input id="name" name="name" required placeholder="Brest">
+<div class="container">
 
-  <label for="city">Ville</label>
-  <input id="city" name="city" required placeholder="Brest 29200">
+  <section class="hero">
+    <div class="hero-text">
+      <span class="stamp">Urgent</span>
+      <h1>Les logements CROUS disparaissent en quelques minutes.</h1>
+      <p>Toi, tu ne peux pas rafraichir la page toute la journee. Ce robot le fait
+      pour toi, gratuitement, et t'alerte par email des qu'un logement correspond a
+      ta recherche.</p>
+      <a href="#formulaire" class="btn btn-primary">Creer mon alerte</a>
+    </div>
+    <img src="illustrations/etudiant-stresse.svg" alt="Etudiant stresse qui rafraichit son telephone en boucle">
+  </section>
 
-  <label for="keywords">Mots-cles (residence, type de logement...) - optionnel</label>
-  <input id="keywords" name="keywords" placeholder="Kergoat, studio">
-
-  <label for="emails">Email(s) de notification - optionnel (max 3, separes par des virgules)</label>
-  <input id="emails" name="emails" placeholder="toi@example.com">
-
-  <div class="honeypot" aria-hidden="true">
-    <label for="website">Laisse ce champ vide</label>
-    <input id="website" name="website" tabindex="-1" autocomplete="off">
+  <div class="constat card">
+    <div class="eyebrow">Le constat</div>
+    <p>Sur trouverunlogement.lescrous.fr, les nouvelles disponibilites partent
+    presque instantanement. Le temps de te connecter, de chercher, de comparer,
+    c'est deja trop tard. Il faudrait surveiller le site en permanence, ce que
+    personne n'a le temps de faire.</p>
   </div>
 
-  <button type="submit">Creer la recherche</button>
-</form>
-<div id="result" class="hidden"></div>
+  <section class="solution">
+    <img src="illustrations/etudiant-soulage.svg" alt="Etudiant soulage tenant les cles de son nouveau logement">
+    <div>
+      <h2>Comment ca marche</h2>
+      <ol class="steps">
+        <li><strong>Tu crees ta recherche</strong> — ville, mots-cles optionnels, email.</li>
+        <li><strong>Le robot verifie toutes les 5 minutes</strong> — gratuitement, 24h/24, sans que tu aies rien a faire.</li>
+        <li><strong>Tu recois une alerte email</strong> des qu'un logement correspond — tu n'as plus qu'a foncer le reserver.</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="trust">
+    <strong>Pourquoi lui faire confiance :</strong>
+    <ul>
+      <li>Gratuit, sans compte GitHub necessaire</li>
+      <li>Confirmation email obligatoire avant toute alerte (anti-abus)</li>
+      <li>Code source ouvert</li>
+    </ul>
+  </div>
+
+  <h2 id="formulaire">Creer ma recherche</h2>
+  <form id="search-form">
+    <div class="field">
+      <label for="name">Nom de la recherche</label>
+      <input id="name" name="name" required placeholder="Brest">
+    </div>
+
+    <div class="field">
+      <label for="city">Ville</label>
+      <input id="city" name="city" required placeholder="Brest 29200">
+    </div>
+
+    <div class="field">
+      <label for="keywords">Mots-cles (residence, type de logement...) - optionnel</label>
+      <input id="keywords" name="keywords" placeholder="Kergoat, studio">
+    </div>
+
+    <div class="field">
+      <label for="emails">Email(s) de notification - optionnel (max 3, separes par des virgules)</label>
+      <input id="emails" name="emails" placeholder="toi@example.com">
+    </div>
+
+    <div class="honeypot" aria-hidden="true">
+      <label for="website">Laisse ce champ vide</label>
+      <input id="website" name="website" tabindex="-1" autocomplete="off">
+    </div>
+
+    <button type="submit" class="btn btn-primary">Creer la recherche</button>
+  </form>
+  <div id="result" class="result hidden"></div>
+
+</div>
 
 <script>
   const form = document.getElementById("search-form");
@@ -47,7 +134,7 @@
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    result.className = "hidden";
+    result.className = "result hidden";
 
     const payload = {
       name: form.name.value,
@@ -67,16 +154,16 @@
 
       if (!response.ok) {
         result.textContent = data.error || "Une erreur est survenue.";
-        result.className = "error";
+        result.className = "result error";
         return;
       }
 
       result.textContent = "Recherche soumise.";
-      result.className = "success";
+      result.className = "result success";
       form.reset();
     } catch (err) {
       result.textContent = "Une erreur est survenue, reessaie dans quelques minutes.";
-      result.className = "error";
+      result.className = "result error";
     }
   });
 </script>
