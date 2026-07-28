@@ -362,6 +362,10 @@
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
     result.className = "alert d-none mt-4 mb-0";
 
     const payload = {
