@@ -14,6 +14,7 @@ from typing import Any
 import requests
 
 import check_logement as clog
+from search_criteria import build_criteria, criteria_match
 
 GEOCODE_URL = "https://api-adresse.data.gouv.fr/search/"
 GEOCODE_TIMEOUT = 20
@@ -307,6 +308,38 @@ def main() -> int:
         print(f"ERROR: adresse(s) email invalide(s) : {', '.join(invalid_emails)}")
         return 1
 
+    criteria = build_criteria(
+        city=city,
+        extent=extent_raw if has_valid_extent else None,
+        max_price=max_price,
+        min_area=min_area,
+        occupation_modes=occupation_modes,
+        prm=prm,
+    )
+
+    submitted = emails[0].strip().lower()
+    for existing in searches:
+        if not criteria_match(existing.get("criteria"), criteria):
+            continue
+        if any(e.strip().lower() == submitted for e in existing.get("emails") or []):
+            print(
+                f"ERROR: {submitted} est deja abonne a une recherche aux memes "
+                f"criteres ({existing['name']!r})"
+            )
+            return 1
+    for pending_name, record in pending.items():
+        if not criteria_match(record.get("search", {}).get("criteria"), criteria):
+            continue
+        if any(
+            e.strip().lower() == submitted
+            for e in (record.get("pending_emails") or {}).values()
+        ):
+            print(
+                f"ERROR: {submitted} a deja une demande en attente sur les memes "
+                f"criteres ({pending_name!r})"
+            )
+            return 1
+
     try:
         html = clog.fetch_html(url)
         results = clog.parse_search_results(html)
@@ -321,7 +354,7 @@ def main() -> int:
         kw for kw in keywords if discovered and not any(kw.lower() in d for d in discovered)
     ]
 
-    entry: dict[str, Any] = {"name": name, "url": url}
+    entry: dict[str, Any] = {"name": name, "url": url, "criteria": criteria}
     if keywords:
         entry["keywords"] = keywords
 

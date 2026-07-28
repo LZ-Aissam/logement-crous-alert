@@ -8,6 +8,18 @@ import add_search as mod
 import check_logement as clog
 
 
+def _stub_network_and_smtp(monkeypatch):
+    """Neutralise le reseau et l'envoi SMTP pour les tests de main()."""
+    monkeypatch.setattr(mod.clog, "fetch_html", lambda url: "<html></html>")
+    monkeypatch.setattr(mod.clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(mod.clog, "send_email", lambda **kwargs: None)
+    for var, value in (
+        ("SMTP_HOST", "x"), ("SMTP_PORT", "1"), ("SMTP_USER", "x"),
+        ("SMTP_PASSWORD", "x"), ("FROM_EMAIL", "x@example.com"),
+    ):
+        monkeypatch.setenv(var, value)
+
+
 def test_parse_issue_form_body_all_fields_filled():
     body = (
         "### Nom de la recherche\n\nBrest\n\n"
@@ -493,7 +505,7 @@ def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
     entry = pending["Agen"]["search"]
     clog.save_searches([entry])
     loaded = clog.load_searches()
-    assert loaded == [{"name": "Agen", "url": entry["url"]}]
+    assert loaded == [entry]
 
 
 def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
@@ -925,6 +937,99 @@ def test_more_than_one_email_is_rejected(monkeypatch, tmp_path):
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     assert mod.main() == 1
+
+
+def test_entry_carries_a_criteria_block(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    body = (
+        "### Nom de la recherche\n\nRennes\n\n"
+        "### Ville\n\nRennes\n\n"
+        "### Email de notification\n\na@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-1.75_48.16_-1.61_48.05\n\n"
+        "### Prix maximum - optionnel\n\n500\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    assert mod.main() == 0
+
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    criteria = pending["Rennes"]["search"]["criteria"]
+    assert criteria["extent"] == "-1.75_48.16_-1.61_48.05"
+    assert criteria["city"] == "rennes"
+    assert criteria["maxPrice"] == 500
+    assert criteria["prm"] is False
+
+
+def test_same_email_and_same_criteria_is_refused(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Deja la",
+                    "url": "https://example.test/search",
+                    "emails": ["a@example.com"],
+                    "criteria": {
+                        "extent": "-1.75_48.16_-1.61_48.05",
+                        "city": "rennes",
+                        "maxPrice": None,
+                        "minArea": None,
+                        "occupationModes": [],
+                        "prm": False,
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nAutre nom\n\n"
+        "### Ville\n\nRennes\n\n"
+        "### Email de notification\n\na@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-1.75_48.16_-1.61_48.05\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    assert mod.main() == 1
+
+
+def test_same_criteria_but_different_email_is_allowed(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Deja la",
+                    "url": "https://example.test/search",
+                    "emails": ["a@example.com"],
+                    "criteria": {
+                        "extent": "-1.75_48.16_-1.61_48.05",
+                        "city": "rennes",
+                        "maxPrice": None,
+                        "minArea": None,
+                        "occupationModes": [],
+                        "prm": False,
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nAutre nom\n\n"
+        "### Ville\n\nRennes\n\n"
+        "### Email de notification\n\nb@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-1.75_48.16_-1.61_48.05\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    assert mod.main() == 0
 
 
 def test_pending_searches_path_derives_from_check_logement_data_dir(monkeypatch):
