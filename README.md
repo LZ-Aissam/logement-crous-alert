@@ -28,8 +28,6 @@ Actions — pas besoin de garder un PC allumé.
      compte Brevo)
    - `FROM_EMAIL` : l'adresse expéditeur vérifiée dans Brevo à l'étape 2 — distincte de
      `SMTP_USER`, qui sert uniquement à l'authentification
-   - `ALERT_EMAIL` : l'email destinataire par défaut, utilisé pour toute recherche
-     dans `searches.json` qui n'a pas son propre champ `emails`
    - `UNSUBSCRIBE_SECRET` : une chaine aleatoire (ex. generee avec
      `python -c "import secrets; print(secrets.token_urlsafe(32))"`), utilisee pour
      signer les liens de desinscription dans les emails d'alerte. Optionnel : sans ce
@@ -40,8 +38,9 @@ Actions — pas besoin de garder un PC allumé.
    Issue GitHub, voir plus bas, si tu préfères ne pas toucher au fichier à la main).
    Pour obtenir l'URL d'une recherche : va sur trouverunlogement.lescrous.fr, règle les
    filtres voulus (ville, type de logement, prix...) dans l'interface, puis copie l'URL
-   de la barre d'adresse. Champ `emails` optionnel (liste de destinataires spécifiques à
-   cette recherche) ; s'il est absent, `ALERT_EMAIL` est utilisé.
+   de la barre d'adresse. Champ `emails` obligatoire (liste avec une seule adresse) :
+   sans lui, le bot ignore cette recherche à chaque exécution et logue une erreur,
+   faute de destinataire — aucune alerte n'est jamais envoyée.
 
    Attention : au tout premier passage pour une recherche donnée, tous les logements
    actuellement listés seront considérés comme "nouveaux" et déclencheront un email
@@ -122,36 +121,23 @@ en temps sur le site du CROUS si un logement qui te semble pertinent n'a pas dé
 
 ### Confirmation d'email obligatoire
 
-Si tu renseignes une ou plusieurs adresses dans le champ **Email(s) de notification**,
-la recherche n'est **pas activée tout de suite**. Elle est créée **en attente**
-(stockée dans `pending_searches.json`, pas encore dans `searches.json`) et n'envoie
-aucune alerte pour l'instant.
+Une seule adresse email est obligatoire pour créer une recherche. Elle n'est **pas
+activée tout de suite** : la recherche est créée **en attente** (stockée dans
+`pending_searches.json`, pas encore dans `searches.json`) et n'envoie aucune alerte
+pour l'instant.
 
-Un email de confirmation est envoyé à chaque adresse renseignée, avec un lien à
-cliquer pour confirmer. Par défaut ce lien ouvre une nouvelle Issue GitHub
-pré-remplie avec un code de confirmation unique (nécessite un compte GitHub,
-gratuit) — sauf si le formulaire public Netlify est configuré (voir plus bas), auquel
-cas le lien ouvre une simple page web, sans compte requis.
+Un email de confirmation est envoyé à cette adresse, avec un lien à cliquer pour
+confirmer. Par défaut ce lien ouvre une nouvelle Issue GitHub pré-remplie avec un
+code de confirmation unique (nécessite un compte GitHub, gratuit) — sauf si le
+formulaire public Netlify est configuré (voir plus bas), auquel cas le lien ouvre
+une simple page web, sans compte requis.
 
-Dès qu'**une seule** des adresses confirme, la recherche devient active dans
-`searches.json`, avec cette adresse comme destinataire. Les autres adresses peuvent
-confirmer plus tard, chacune depuis son propre lien, et sont ajoutées à la liste des
-destinataires au fur et à mesure.
-
-Si le champ email est laissé vide, la recherche est activée immédiatement avec
-`ALERT_EMAIL` comme destinataire — pas de confirmation nécessaire dans ce cas, puisque
-c'est l'adresse du propriétaire du dépôt lui-même.
+Dès que l'adresse confirme, la recherche devient active dans `searches.json`, avec
+cette adresse comme seul destinataire.
 
 Cette étape existe pour une seule raison : empêcher que quelqu'un renseigne l'adresse
 email d'un inconnu et lui fasse recevoir, sans son accord, des emails automatiques
 depuis l'adresse d'expéditeur configurée pour ce dépôt.
-
-**Attention, ces données restent publiques :** les adresses email que tu soumets
-finissent dans les fichiers du dépôt (`searches.json`, `pending_searches.json`), qui
-est public — ne mets pas d'adresse que tu ne veux pas voir apparaître publiquement sur
-GitHub, y compris dans l'historique Git une fois l'adresse retirée du fichier courant.
-(Les codes de confirmation eux-mêmes ne sont jamais stockés en clair — seule leur
-empreinte cryptographique l'est.)
 
 ### Se désinscrire d'une recherche
 
@@ -189,13 +175,13 @@ leurs propres CROUS). Les filtres prix/surface/cohabitation/PMR sont transmis te
 site CROUS, qui applique le filtrage lui-même avant que le robot ne récupère les
 résultats.
 
-Le formulaire est protege par Cloudflare Turnstile et refuse une inscription en
-double : la meme adresse ne peut pas s'abonner deux fois a une recherche aux
-criteres identiques.
+Le formulaire est protégé par Cloudflare Turnstile et refuse une inscription en
+double : la même adresse ne peut pas s'abonner deux fois à une recherche aux
+critères identiques.
 
-Les donnees d'abonnes (`searches.json`, `pending_searches.json`, `seen.json`) ne
-vivent pas dans ce depot public mais dans un depot prive dedie, pour que les
-adresses email des inscrits ne soient pas publiees. Les workflows y accedent via le
+Les données d'abonnés (`searches.json`, `pending_searches.json`, `seen.json`) ne
+vivent pas dans ce dépôt public mais dans un dépôt privé dédié, pour que les
+adresses email des inscrits ne soient pas publiées. Les workflows y accèdent via le
 secret `DATA_REPO_PAT`.
 
 1. Crée un compte Netlify et lie-le à ce dépôt GitHub (Netlify détecte automatiquement
@@ -227,8 +213,8 @@ il n'y a pas de compte utilisateur ni de tableau de bord pour gérer ses propres
 recherches après coup.
 
 **Risque à connaître** : ce formulaire public est aussi un relais d'envoi d'emails
-depuis ton compte d'envoi d'emails — n'importe quel visiteur anonyme peut faire envoyer jusqu'à 3
-emails de confirmation à des adresses de son choix par soumission, avant toute
+depuis ton compte d'envoi d'emails — n'importe quel visiteur anonyme peut faire envoyer un
+email de confirmation à une adresse de son choix par soumission, avant toute
 confirmation de sa part. En cas d'abus constaté, la mitigation la plus rapide est de
 révoquer le token `GITHUB_PAT` dans les variables d'environnement Netlify : ça coupe
 immédiatement le formulaire public, sans toucher au formulaire GitHub classique
@@ -241,12 +227,12 @@ pip install -r requirements-dev.txt
 python -m pytest -v
 ```
 
-Pour lancer le script en local (nécessite les 6 variables d'environnement ci-dessus) :
+Pour lancer le script en local (nécessite les 5 variables d'environnement ci-dessus) :
 
 En bash / macOS / Linux :
 
 ```bash
-export SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASSWORD=... FROM_EMAIL=... ALERT_EMAIL=...
+export SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASSWORD=... FROM_EMAIL=...
 python check_logement.py
 ```
 
@@ -258,7 +244,6 @@ $env:SMTP_PORT = "587"
 $env:SMTP_USER = "..."
 $env:SMTP_PASSWORD = "..."
 $env:FROM_EMAIL = "..."
-$env:ALERT_EMAIL = "..."
 python check_logement.py
 ```
 
