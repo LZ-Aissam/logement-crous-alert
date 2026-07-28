@@ -198,11 +198,16 @@ def test_discover_filters_empty_items_returns_empty_lists():
 def test_main_adds_search_successfully(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\nKergoat\n\n"
-        "### Email de notification\n\n_No response_\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -212,16 +217,21 @@ def test_main_adds_search_successfully(tmp_path, monkeypatch, capsys):
         "parse_search_results",
         lambda html: {"items": [{"label": "T1", "residence": {"label": "Kergoat"}}]},
     )
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
-    assert len(searches) == 1
-    assert searches[0]["name"] == "Agen"
-    assert searches[0]["keywords"] == ["Kergoat"]
-    assert "url" in searches[0]
-    assert "emails" not in searches[0]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    entry = pending["Agen"]["search"]
+    assert entry["name"] == "Agen"
+    assert entry["keywords"] == ["Kergoat"]
+    assert "url" in entry
+    assert "emails" not in entry
     out = capsys.readouterr().out
     assert "OK" in out
 
@@ -270,11 +280,16 @@ def test_main_reports_error_when_city_not_found(tmp_path, monkeypatch):
 def test_main_warns_when_keyword_not_found_but_still_adds(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\nTypo123\n\n"
-        "### Email de notification\n\n_No response_\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -284,12 +299,17 @@ def test_main_warns_when_keyword_not_found_but_still_adds(tmp_path, monkeypatch,
         "parse_search_results",
         lambda html: {"items": [{"label": "T1", "residence": {"label": "Kergoat"}}]},
     )
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
-    assert len(searches) == 1
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" in pending
     out = capsys.readouterr().out
     assert "Typo123" in out
 
@@ -315,23 +335,33 @@ def test_main_aborts_on_invalid_existing_searches_json(tmp_path, monkeypatch):
 def test_main_still_succeeds_when_discovery_fetch_fails(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text("[]", encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\n_No response_\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     monkeypatch.setattr(
         clog, "fetch_html", lambda url: (_ for _ in ()).throw(clog.SearchFetchError("boom"))
     )
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
-    assert len(searches) == 1
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" in pending
     out = capsys.readouterr().out
     assert "Aucun logement disponible actuellement dans cette zone" in out
 
@@ -431,23 +461,39 @@ def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
 
 
 def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
+    # add_search.py no longer writes searches.json itself (confirm_email.py does, once
+    # an address confirms) -- verify the "search" entry it stages in pending_searches.json
+    # still has the shape check_logement.load_searches() accepts.
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\n_No response_\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     assert mod.main() == 0
 
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    entry = pending["Agen"]["search"]
+    clog.save_searches([entry])
     loaded = clog.load_searches()
-    assert loaded == [{"name": "Agen", "url": loaded[0]["url"]}]
+    assert loaded == [{"name": "Agen", "url": entry["url"]}]
 
 
 def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
@@ -541,7 +587,9 @@ def test_main_requires_smtp_env_when_email_submitted(tmp_path, monkeypatch):
         mod.main()
 
 
-def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch, capsys):
+def test_main_reports_error_when_the_confirmation_email_fails_to_send(tmp_path, monkeypatch, capsys):
+    # With only one address ever accepted, a failed confirmation send can no longer be
+    # offset by another address succeeding -- it must be a hard failure.
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
@@ -554,7 +602,7 @@ def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch,
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\na@example.com, b@example.com\n"
+        "### Email de notification\n\na@example.com\n"
     )
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
@@ -562,16 +610,14 @@ def test_main_continues_when_one_confirmation_email_fails(tmp_path, monkeypatch,
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
 
     def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
-        if to_addrs == ["a@example.com"]:
-            raise Exception("smtp boom")
+        raise Exception("smtp boom")
 
     monkeypatch.setattr(clog, "send_email", fake_send_email)
 
     exit_code = mod.main()
 
-    assert exit_code == 0
-    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
-    assert list(pending["Agen"]["pending_emails"].values()) == ["b@example.com"]
+    assert exit_code == 1
+    assert not (tmp_path / "pending_searches.json").exists()
     out = capsys.readouterr().out
     assert "a@example.com" in out
 
@@ -653,11 +699,16 @@ def test_main_rejects_more_than_three_distinct_emails(tmp_path, monkeypatch):
 def test_main_uses_extent_instead_of_geocoding_when_valid(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nRésidence Kergoat\n\n"
         "### Ville\n\nRésidence Kergoat Brest\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\n_No response_\n\n"
+        "### Email de notification\n\na@example.com\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
         "-4.5689169_48.4595521_-4.4278311_48.3572972\n\n"
         "### Prix maximum - optionnel\n\n_No response_\n\n"
@@ -673,22 +724,33 @@ def test_main_uses_extent_instead_of_geocoding_when_valid(tmp_path, monkeypatch)
     monkeypatch.setattr(mod, "geocode_city", fail_geocode)
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
-    assert "bounds=-4.5689169_48.4595521_-4.4278311_48.3572972" in searches[0]["url"]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    entry = pending["Résidence Kergoat"]["search"]
+    assert "bounds=-4.5689169_48.4595521_-4.4278311_48.3572972" in entry["url"]
 
 
 def test_main_applies_price_area_occupation_prm_filters(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\n_No response_\n\n"
+        "### Email de notification\n\na@example.com\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\n400\n\n"
         "### Surface minimum en m2 - optionnel\n\n15\n\n"
@@ -699,12 +761,17 @@ def test_main_applies_price_area_occupation_prm_filters(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
-    url = searches[0]["url"]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    url = pending["Agen"]["search"]["url"]
     assert "&maxPrice=400" in url
     assert "&minArea=15" in url
     assert "&occupationMode=alone" in url
@@ -717,11 +784,16 @@ def test_main_accepts_english_occupation_mode_values_from_the_public_form(tmp_pa
     # unlike a manually-typed GitHub Issue which sends French labels -- both must work.
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\n_No response_\n\n"
+        "### Email de notification\n\na@example.com\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\n_No response_\n\n"
         "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
@@ -732,11 +804,17 @@ def test_main_accepts_english_occupation_mode_values_from_the_public_form(tmp_pa
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    url = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))[0]["url"]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    url = pending["Agen"]["search"]["url"]
     assert "&occupationMode=alone" in url
     assert "&occupationMode=house_sharing" in url
 
@@ -766,11 +844,16 @@ def test_main_rejects_non_numeric_max_price(tmp_path, monkeypatch):
 def test_main_ignores_unrecognized_occupation_mode_label(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
     body = (
         "### Nom de la recherche\n\nAgen\n\n"
         "### Ville\n\nAgen 47000\n\n"
         "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
-        "### Email de notification\n\n_No response_\n\n"
+        "### Email de notification\n\na@example.com\n\n"
         "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
         "### Prix maximum - optionnel\n\n_No response_\n\n"
         "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
@@ -781,15 +864,24 @@ def test_main_ignores_unrecognized_occupation_mode_label(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
 
     exit_code = mod.main()
 
     assert exit_code == 0
-    url = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))[0]["url"]
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    url = pending["Agen"]["search"]["url"]
     assert "occupationMode" not in url
 
 
-def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
+def test_main_rejects_missing_email_and_leaves_files_untouched(tmp_path, monkeypatch):
+    # Formerly "still activates immediately without emails" -- the ALERT_EMAIL
+    # fallback this described is gone now that an address is mandatory; a submission
+    # without one must be rejected outright, with no searches.json/pending write.
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
     body = (
@@ -805,10 +897,32 @@ def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
 
     exit_code = mod.main()
 
-    assert exit_code == 0
+    assert exit_code == 1
     searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
-    assert len(searches) == 1
+    assert searches == []
     assert not (tmp_path / "pending_searches.json").exists()
+
+
+def test_missing_email_is_rejected(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    body = (
+        "### Nom de la recherche\n\nBrest\n\n"
+        "### Ville\n\nBrest\n\n"
+        "### Email de notification\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    assert mod.main() == 1
+
+
+def test_more_than_one_email_is_rejected(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    body = (
+        "### Nom de la recherche\n\nBrest\n\n"
+        "### Ville\n\nBrest\n\n"
+        "### Email de notification\n\na@example.com, b@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    assert mod.main() == 1
 
 
 def test_pending_searches_path_derives_from_check_logement_data_dir(monkeypatch):

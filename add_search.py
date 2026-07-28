@@ -294,8 +294,12 @@ def main() -> int:
             deduped_emails.append(e)
     emails = deduped_emails
 
-    if len(emails) > 3:
-        print(f"ERROR: trop d'adresses email soumises (max 3, recu {len(emails)})")
+    if not emails:
+        print("ERROR: l'email de notification est obligatoire")
+        return 1
+
+    if len(emails) > 1:
+        print(f"ERROR: une seule adresse email par recherche (recu {len(emails)})")
         return 1
 
     invalid_emails = [e for e in emails if not EMAIL_RE.match(e)]
@@ -342,60 +346,54 @@ def main() -> int:
             "suggerer une liste de residences/types pour l'instant."
         )
 
-    if emails:
-        smtp_host = clog._require_env("SMTP_HOST")
-        smtp_port = int(clog._require_env("SMTP_PORT"))
-        smtp_user = clog._require_env("SMTP_USER")
-        smtp_password = clog._require_env("SMTP_PASSWORD")
-        from_email = clog._require_env("FROM_EMAIL")
-        pending_emails: dict[str, str] = {}
-        failed_emails: list[str] = []
-        for email in emails:
-            token = secrets.token_urlsafe(16)
-            confirmation_url = build_confirmation_url(token)
-            confirmation_body = build_confirmation_email_body(name, confirmation_url)
-            try:
-                clog.send_email(
-                    subject=f"Confirme ton adresse pour la recherche {name!r}",
-                    body=confirmation_body,
-                    to_addrs=[email],
-                    smtp_host=smtp_host,
-                    smtp_port=smtp_port,
-                    smtp_user=smtp_user,
-                    smtp_password=smtp_password,
-                    from_email=from_email,
-                )
-            except Exception as exc:
-                print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")
-                failed_emails.append(email)
-                continue
-            pending_emails[hash_token(token)] = email
-
-        if not pending_emails:
-            print(f"ERROR: aucun email de confirmation n'a pu etre envoye pour {name!r}")
-            return 1
-
-        pending[name] = {"search": entry, "pending_emails": pending_emails}
-        save_pending_searches(pending)
-        lines.insert(
-            0,
-            f"OK: recherche {name!r} creee EN ATTENTE de confirmation email pour {city!r}.",
-        )
-        lines.append(
-            f"Email(s) en attente de confirmation : {', '.join(pending_emails.values())}. Un "
-            "email de confirmation a ete envoye a chaque adresse. La recherche ne sera "
-            "active qu'une fois qu'au moins un email aura confirme."
-        )
-        if failed_emails:
-            lines.append(
-                f"AVERTISSEMENT: echec d'envoi pour : {', '.join(failed_emails)} "
-                "(resoumets une nouvelle issue pour ces adresses si besoin)"
+    smtp_host = clog._require_env("SMTP_HOST")
+    smtp_port = int(clog._require_env("SMTP_PORT"))
+    smtp_user = clog._require_env("SMTP_USER")
+    smtp_password = clog._require_env("SMTP_PASSWORD")
+    from_email = clog._require_env("FROM_EMAIL")
+    pending_emails: dict[str, str] = {}
+    failed_emails: list[str] = []
+    for email in emails:
+        token = secrets.token_urlsafe(16)
+        confirmation_url = build_confirmation_url(token)
+        confirmation_body = build_confirmation_email_body(name, confirmation_url)
+        try:
+            clog.send_email(
+                subject=f"Confirme ton adresse pour la recherche {name!r}",
+                body=confirmation_body,
+                to_addrs=[email],
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+                from_email=from_email,
             )
-    else:
-        searches.append(entry)
-        clog.save_searches(searches)
-        lines.insert(0, f"OK: recherche {name!r} ajoutee pour {city!r}.")
-        lines.append("Destinataire : email par defaut (ALERT_EMAIL)")
+        except Exception as exc:
+            print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")
+            failed_emails.append(email)
+            continue
+        pending_emails[hash_token(token)] = email
+
+    if not pending_emails:
+        print(f"ERROR: aucun email de confirmation n'a pu etre envoye pour {name!r}")
+        return 1
+
+    pending[name] = {"search": entry, "pending_emails": pending_emails}
+    save_pending_searches(pending)
+    lines.insert(
+        0,
+        f"OK: recherche {name!r} creee EN ATTENTE de confirmation email pour {city!r}.",
+    )
+    lines.append(
+        f"Email(s) en attente de confirmation : {', '.join(pending_emails.values())}. Un "
+        "email de confirmation a ete envoye a chaque adresse. La recherche ne sera "
+        "active qu'une fois qu'au moins un email aura confirme."
+    )
+    if failed_emails:
+        lines.append(
+            f"AVERTISSEMENT: echec d'envoi pour : {', '.join(failed_emails)} "
+            "(resoumets une nouvelle issue pour ces adresses si besoin)"
+        )
 
     print("\n".join(lines))
     return 0
