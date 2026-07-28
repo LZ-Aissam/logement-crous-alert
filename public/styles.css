@@ -43,6 +43,9 @@ h1, h2, h3, .display-1, .display-2, .display-3, .display-4 {
   --bs-btn-hover-bg: var(--color-red-dark);
   --bs-btn-hover-border-color: var(--color-red-dark);
   --bs-btn-active-bg: var(--color-red-dark);
+  --bs-btn-disabled-bg: var(--color-red);
+  --bs-btn-disabled-border-color: var(--color-red);
+  --bs-btn-disabled-color: var(--paper);
   --bs-btn-focus-shadow-rgb: 224, 16, 32;
   font-weight: 600;
   box-shadow: 0 8px 20px -8px rgba(224, 16, 32, 0.55);
@@ -56,9 +59,14 @@ h1, h2, h3, .display-1, .display-2, .display-3, .display-4 {
   font-weight: 600;
 }
 
-/* Stamp badge — the site's signature element */
+/* Stamp badge — the site's signature element.
+   align-self/flex-shrink guard against being stretched full-width when
+   used as a direct child of a flex container (e.g. Bootstrap's .card,
+   which is display:flex; flex-direction:column by default). */
 .stamp {
   display: inline-flex;
+  align-self: flex-start;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.4rem;
   border: 3px solid var(--color-red);
@@ -124,13 +132,17 @@ h1, h2, h3, .display-1, .display-2, .display-3, .display-4 {
 
 .honeypot { position: absolute; left: -9999px; top: -9999px; }
 
-/* Entrance + scroll-reveal animation */
-.reveal {
+/* Entrance + scroll-reveal animation.
+   Progressive enhancement: elements are visible by default. JS opts an
+   element into the hidden-until-scrolled-into-view treatment by adding
+   .reveal-pending; if JS never runs (blocked, error, no-JS), content
+   never becomes invisible. See index.html's inline script. */
+.reveal.reveal-pending {
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
-.reveal.is-visible { opacity: 1; transform: translateY(0); }
+.reveal.reveal-pending.is-visible { opacity: 1; transform: translateY(0); }
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(20px); }

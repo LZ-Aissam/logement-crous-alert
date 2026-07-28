@@ -4,27 +4,43 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Se desinscrire - Alerte logement CROUS</title>
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
-  button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; }
-  #result { margin-top: 1.5rem; padding: 1rem; border-radius: 4px; }
-  #result.success { background: #e6f4ea; }
-  #result.error { background: #fce8e6; }
-  #result.hidden { display: none; }
-  .honeypot { position: absolute; left: -9999px; top: -9999px; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
-<body>
-<h1>Se desinscrire</h1>
-<p id="intro">Clique sur le bouton ci-dessous pour ne plus recevoir d'alertes pour cette recherche.</p>
+<body style="background: var(--color-grey); min-height: 100vh;">
 
-<div class="honeypot" aria-hidden="true">
-  <label for="website">Laisse ce champ vide</label>
-  <input id="website" tabindex="-1" autocomplete="off">
-</div>
+<nav class="navbar navbar-expand py-3">
+  <div class="container">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2 mb-0" href="index.html">
+      <i class="bi bi-house-heart-fill"></i>
+      Alerte Logement CROUS
+    </a>
+  </div>
+</nav>
 
-<button id="unsubscribe-button" type="button">Se desinscrire</button>
-<div id="result" class="hidden"></div>
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-lg p-4 p-md-5 reveal is-visible">
+        <span class="stamp stamp-teal mb-3">Désinscription</span>
+        <h1 class="h3 fw-bold mt-3 mb-2">Se désinscrire</h1>
+        <p id="intro" class="text-secondary">Clique sur le bouton ci-dessous pour ne plus recevoir d'alertes pour cette recherche.</p>
+
+        <div class="honeypot" aria-hidden="true">
+          <label for="website">Laisse ce champ vide</label>
+          <input id="website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <button id="unsubscribe-button" type="button" class="btn btn-primary btn-lg w-100 rounded-pill mt-3">Se désinscrire</button>
+        <div id="result" class="alert d-none mt-4 mb-0" role="status"></div>
+      </div>
+    </div>
+  </div>
+</main>
 
 <script>
   const params = new URLSearchParams(window.location.search);
@@ -39,14 +55,14 @@
   if (!search || !email || !token) {
     button.disabled = true;
     result.textContent = "Lien invalide : informations manquantes dans l'URL.";
-    result.className = "error";
+    result.className = "alert alert-danger mt-4 mb-0";
   } else {
-    intro.textContent = 'Se desinscrire de la recherche "' + search + '" pour l\'adresse ' + email + ' ?';
+    intro.textContent = 'Se désinscrire de la recherche "' + search + '" pour l\'adresse ' + email + ' ?';
   }
 
   button.addEventListener("click", async () => {
     button.disabled = true;
-    result.className = "hidden";
+    result.className = "alert d-none mt-4 mb-0";
 
     try {
       const response = await fetch("/.netlify/functions/unsubscribe", {
@@ -58,16 +74,16 @@
 
       if (!response.ok) {
         result.textContent = data.error || "Une erreur est survenue.";
-        result.className = "error";
+        result.className = "alert alert-danger mt-4 mb-0";
         button.disabled = false;
         return;
       }
 
-      result.textContent = "Desinscription envoyee.";
-      result.className = "success";
+      result.textContent = "Désinscription envoyée.";
+      result.className = "alert alert-success mt-4 mb-0";
     } catch (err) {
-      result.textContent = "Une erreur est survenue, reessaie dans quelques minutes.";
-      result.className = "error";
+      result.textContent = "Une erreur est survenue, réessaie dans quelques minutes.";
+      result.className = "alert alert-danger mt-4 mb-0";
       button.disabled = false;
     }
   });
