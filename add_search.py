@@ -194,10 +194,51 @@ def main() -> int:
     city = fields.get(FIELD_CITY)
     keywords_raw = fields.get(FIELD_KEYWORDS)
     emails_raw = fields.get(FIELD_EMAILS)
+    extent_raw = fields.get(FIELD_EXTENT)
+    max_price_raw = fields.get(FIELD_MAX_PRICE)
+    min_area_raw = fields.get(FIELD_MIN_AREA)
+    occupation_mode_raw = fields.get(FIELD_OCCUPATION_MODE)
+    prm_raw = fields.get(FIELD_PRM)
 
     if not name or not city:
         print("ERROR: le nom de la recherche et la ville sont obligatoires")
         return 1
+
+    max_price: int | None = None
+    if max_price_raw:
+        try:
+            max_price = int(max_price_raw.strip())
+            if max_price < 0:
+                raise ValueError
+        except ValueError:
+            print(f"ERROR: prix maximum invalide : {max_price_raw!r}")
+            return 1
+
+    min_area: int | None = None
+    if min_area_raw:
+        try:
+            min_area = int(min_area_raw.strip())
+            if min_area < 0:
+                raise ValueError
+        except ValueError:
+            print(f"ERROR: surface minimum invalide : {min_area_raw!r}")
+            return 1
+
+    # Two paths feed this field: the public form's checkboxes already send valid
+    # API values directly (e.g. "alone,house_sharing"), while a manually-submitted
+    # GitHub Issue is expected to contain French labels (e.g. "Individuel,
+    # Colocation") -- accept either, matching whichever the caller sent.
+    occupation_modes = []
+    for label in _split_csv(occupation_mode_raw):
+        normalized = label.strip().lower()
+        if normalized in VALID_OCCUPATION_MODES:
+            occupation_modes.append(normalized)
+        elif normalized in OCCUPATION_MODE_LABELS:
+            occupation_modes.append(OCCUPATION_MODE_LABELS[normalized])
+
+    prm = bool(prm_raw)
+
+    has_valid_extent = bool(extent_raw and EXTENT_RE.match(extent_raw))
 
     if clog.SEARCHES_PATH.exists():
         try:
@@ -223,13 +264,25 @@ def main() -> int:
         print(f"ERROR: une recherche nommee {name!r} existe deja")
         return 1
 
-    try:
-        lon, lat = geocode_city(city)
-    except GeocodeError as exc:
-        print(f"ERROR: {exc}")
-        return 1
+    lon: float | None = None
+    lat: float | None = None
+    if not has_valid_extent:
+        try:
+            lon, lat = geocode_city(city)
+        except GeocodeError as exc:
+            print(f"ERROR: {exc}")
+            return 1
 
-    url = build_search_url(lon, lat, city)
+    url = build_search_url(
+        lon,
+        lat,
+        city,
+        extent=extent_raw,
+        max_price=max_price,
+        min_area=min_area,
+        occupation_modes=occupation_modes,
+        prm=prm,
+    )
     keywords = _split_csv(keywords_raw)
     emails = _split_csv(emails_raw)
 

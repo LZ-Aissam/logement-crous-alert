@@ -640,6 +640,145 @@ def test_main_rejects_more_than_three_distinct_emails(tmp_path, monkeypatch):
     assert not (tmp_path / "pending_searches.json").exists()
 
 
+def test_main_uses_extent_instead_of_geocoding_when_valid(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nRésidence Kergoat\n\n"
+        "### Ville\n\nRésidence Kergoat Brest\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-4.5689169_48.4595521_-4.4278311_48.3572972\n\n"
+        "### Prix maximum - optionnel\n\n_No response_\n\n"
+        "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
+        "### Type de cohabitation (individuel, couple, colocation) - optionnel\n\n_No response_\n\n"
+        "### Logement adapte PMR - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    def fail_geocode(city):
+        raise AssertionError("geocode_city should not be called when extent is valid")
+
+    monkeypatch.setattr(mod, "geocode_city", fail_geocode)
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert "bounds=-4.5689169_48.4595521_-4.4278311_48.3572972" in searches[0]["url"]
+
+
+def test_main_applies_price_area_occupation_prm_filters(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
+        "### Prix maximum - optionnel\n\n400\n\n"
+        "### Surface minimum en m2 - optionnel\n\n15\n\n"
+        "### Type de cohabitation (individuel, couple, colocation) - optionnel\n\nIndividuel, Colocation\n\n"
+        "### Logement adapte PMR - optionnel\n\noui\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    url = searches[0]["url"]
+    assert "&maxPrice=400" in url
+    assert "&minArea=15" in url
+    assert "&occupationMode=alone" in url
+    assert "&occupationMode=house_sharing" in url
+    assert "&prm=true" in url
+
+
+def test_main_accepts_english_occupation_mode_values_from_the_public_form(tmp_path, monkeypatch):
+    # The public form's checkboxes send API values directly (e.g. "alone,house_sharing"),
+    # unlike a manually-typed GitHub Issue which sends French labels -- both must work.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
+        "### Prix maximum - optionnel\n\n_No response_\n\n"
+        "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
+        "### Type de cohabitation (individuel, couple, colocation) - optionnel\n\nalone,house_sharing\n\n"
+        "### Logement adapte PMR - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    url = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))[0]["url"]
+    assert "&occupationMode=alone" in url
+    assert "&occupationMode=house_sharing" in url
+
+
+def test_main_rejects_non_numeric_max_price(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
+        "### Prix maximum - optionnel\n\npas un nombre\n\n"
+        "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
+        "### Type de cohabitation (individuel, couple, colocation) - optionnel\n\n_No response_\n\n"
+        "### Logement adapte PMR - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert json.loads((tmp_path / "searches.json").read_text(encoding="utf-8")) == []
+
+
+def test_main_ignores_unrecognized_occupation_mode_label(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email(s) de notification - optionnel\n\n_No response_\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
+        "### Prix maximum - optionnel\n\n_No response_\n\n"
+        "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
+        "### Type de cohabitation (individuel, couple, colocation) - optionnel\n\nBaragouin\n\n"
+        "### Logement adapte PMR - optionnel\n\n_No response_\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    url = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))[0]["url"]
+    assert "occupationMode" not in url
+
+
 def test_main_still_activates_immediately_without_emails(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
