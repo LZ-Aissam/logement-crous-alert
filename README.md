@@ -165,6 +165,14 @@ spam basique, pas contre un attaquant déterminé. Comme pour le formulaire GitH
 il n'y a pas de compte utilisateur ni de tableau de bord pour gérer ses propres
 recherches après coup.
 
+**Risque à connaître** : ce formulaire public est aussi un relais d'envoi d'emails
+depuis ton compte Gmail — n'importe quel visiteur anonyme peut faire envoyer jusqu'à 3
+emails de confirmation à des adresses de son choix par soumission, avant toute
+confirmation de sa part. En cas d'abus constaté, la mitigation la plus rapide est de
+révoquer le token `GITHUB_PAT` dans les variables d'environnement Netlify : ça coupe
+immédiatement le formulaire public, sans toucher au formulaire GitHub classique
+ci-dessus (qui, lui, exige un compte GitHub pour soumettre).
+
 ## Développement local
 
 ```bash
