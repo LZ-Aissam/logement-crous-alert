@@ -127,14 +127,55 @@
               <input id="name" name="name" required placeholder="Brest" class="form-control form-control-lg">
             </div>
 
-            <div class="mb-3">
-              <label for="city" class="form-label fw-semibold">Ville</label>
-              <input id="city" name="city" required placeholder="Brest 29200" class="form-control form-control-lg">
+            <div class="mb-3" style="position: relative;">
+              <label for="city" class="form-label fw-semibold">Ville, résidence ou lieu d'étude</label>
+              <input id="city" name="city" required placeholder="Brest, ou une résidence, ou une école..."
+                     class="form-control form-control-lg" autocomplete="off" role="combobox"
+                     aria-expanded="false" aria-controls="city-suggestions" aria-autocomplete="list">
+              <input type="hidden" id="extent" name="extent">
+              <ul id="city-suggestions" class="list-group position-absolute w-100 d-none"
+                  role="listbox" style="z-index: 1000; max-height: 260px; overflow-y: auto;"></ul>
             </div>
 
             <div class="mb-3">
               <label for="keywords" class="form-label fw-semibold">Mots-clés (résidence, type de logement...) - optionnel</label>
               <input id="keywords" name="keywords" placeholder="Kergoat, studio" class="form-control form-control-lg">
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label for="maxPrice" class="form-label fw-semibold">Prix maximum - optionnel</label>
+                <input id="maxPrice" name="maxPrice" type="number" min="0" step="1"
+                       placeholder="Sans limite" class="form-control form-control-lg">
+              </div>
+              <div class="col-sm-6">
+                <label for="minArea" class="form-label fw-semibold">Surface minimum en m² - optionnel</label>
+                <input id="minArea" name="minArea" type="number" min="0" step="1"
+                       placeholder="Sans limite" class="form-control form-control-lg">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <span class="form-label fw-semibold d-block">Type de cohabitation - optionnel</span>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="occupation-alone" name="occupationMode" value="alone">
+                <label class="form-check-label" for="occupation-alone">Individuel</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="occupation-couple" name="occupationMode" value="couple">
+                <label class="form-check-label" for="occupation-couple">Couple</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="occupation-house_sharing" name="occupationMode" value="house_sharing">
+                <label class="form-check-label" for="occupation-house_sharing">Colocation</label>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="prm" name="prm">
+                <label class="form-check-label" for="prm">Logement adapté PMR</label>
+              </div>
             </div>
 
             <div class="mb-4">
@@ -177,6 +218,119 @@
     });
   }
 
+  const cityInput = document.getElementById("city");
+  const extentInput = document.getElementById("extent");
+  const suggestionsList = document.getElementById("city-suggestions");
+  let debounceTimer = null;
+  let activeIndex = -1;
+  let currentSuggestions = [];
+
+  function clearSuggestions() {
+    suggestionsList.innerHTML = "";
+    suggestionsList.classList.add("d-none");
+    cityInput.setAttribute("aria-expanded", "false");
+    currentSuggestions = [];
+    activeIndex = -1;
+  }
+
+  function renderSuggestions(features) {
+    currentSuggestions = features;
+    activeIndex = -1;
+    if (!features.length) {
+      clearSuggestions();
+      return;
+    }
+    suggestionsList.innerHTML = features
+      .map((f, i) => {
+        const p = f.properties || {};
+        const context = [p.postcode, p.state].filter(Boolean).join(" - ");
+        const label = context ? `${p.name} (${context})` : p.name;
+        return `<li class="list-group-item list-group-item-action" role="option" id="suggestion-${i}" data-index="${i}">${label}</li>`;
+      })
+      .join("");
+    suggestionsList.classList.remove("d-none");
+    cityInput.setAttribute("aria-expanded", "true");
+  }
+
+  function updateActiveOption() {
+    Array.from(suggestionsList.children).forEach((li, i) => {
+      li.classList.toggle("active", i === activeIndex);
+    });
+    const active = suggestionsList.children[activeIndex];
+    if (active) active.scrollIntoView({ block: "nearest" });
+  }
+
+  function selectSuggestion(index) {
+    const feature = currentSuggestions[index];
+    if (!feature) return;
+    const p = feature.properties || {};
+    cityInput.value = p.name || "";
+    const extent = p.extent;
+    extentInput.value = extent && extent.length === 4 ? extent.join("_") : "";
+    clearSuggestions();
+  }
+
+  cityInput.addEventListener("input", () => {
+    extentInput.value = "";
+    const query = cityInput.value.trim();
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (query.length < 2) {
+      clearSuggestions();
+      return;
+    }
+    debounceTimer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q: query, limit: "8", lang: "fr" });
+        [
+          "amenity:college", "amenity:library", "amenity:school", "amenity:university",
+          "place:country", "place:region", "place:state", "place:city", "place:town",
+          "place:village", "place:house", "landuse:residential",
+        ].forEach((tag) => params.append("osm_tag", tag));
+        const response = await fetch("https://trouverunlogement.lescrous.fr/photon/api?" + params.toString());
+        if (!response.ok) {
+          clearSuggestions();
+          return;
+        }
+        const data = await response.json();
+        renderSuggestions(data.features || []);
+      } catch (err) {
+        clearSuggestions();
+      }
+    }, 300);
+  });
+
+  cityInput.addEventListener("keydown", (event) => {
+    if (suggestionsList.classList.contains("d-none")) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, currentSuggestions.length - 1);
+      updateActiveOption();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      updateActiveOption();
+    } else if (event.key === "Enter") {
+      if (activeIndex >= 0) {
+        event.preventDefault();
+        selectSuggestion(activeIndex);
+      }
+    } else if (event.key === "Escape") {
+      clearSuggestions();
+    }
+  });
+
+  suggestionsList.addEventListener("click", (event) => {
+    const li = event.target.closest("li[data-index]");
+    if (!li) return;
+    selectSuggestion(parseInt(li.dataset.index, 10));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#city") && !event.target.closest("#city-suggestions")) {
+      clearSuggestions();
+    }
+  });
+
   const form = document.getElementById("search-form");
   const result = document.getElementById("result");
 
@@ -190,6 +344,13 @@
       keywords: form.keywords.value,
       emails: form.emails.value,
       website: form.website.value,
+      extent: extentInput.value,
+      maxPrice: form.maxPrice.value,
+      minArea: form.minArea.value,
+      occupationMode: Array.from(form.querySelectorAll('input[name="occupationMode"]:checked'))
+        .map((cb) => cb.value)
+        .join(","),
+      prm: form.prm.checked ? "true" : "",
     };
 
     try {
