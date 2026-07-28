@@ -75,3 +75,41 @@ def test_criteria_match_never_matches_missing_criteria():
     assert criteria_match(a, None) is False
     assert criteria_match(None, a) is False
     assert criteria_match(a, {}) is False
+
+
+def test_criteria_match_asymmetric_extent_matches_same_city():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
+                       min_area=None, occupation_modes=[], prm=False)
+    b = build_criteria(city="Brest", extent=None, max_price=None,
+                       min_area=None, occupation_modes=[], prm=False)
+    assert criteria_match(a, b) is True
+
+
+def test_criteria_match_asymmetric_extent_rejects_different_city():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
+                       min_area=None, occupation_modes=[], prm=False)
+    b = build_criteria(city="Rennes", extent=None, max_price=None,
+                       min_area=None, occupation_modes=[], prm=False)
+    assert criteria_match(a, b) is False
+
+
+def test_criteria_match_zero_max_price():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=0,
+                       min_area=None, occupation_modes=[], prm=False)
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=0,
+                       min_area=None, occupation_modes=[], prm=False)
+    assert criteria_match(a, b) is True
+    c = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
+                       min_area=None, occupation_modes=[], prm=False)
+    assert criteria_match(a, c) is False
+
+
+def test_criteria_match_zero_min_area():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
+                       min_area=0, occupation_modes=[], prm=False)
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
+                       min_area=0, occupation_modes=[], prm=False)
+    assert criteria_match(a, b) is True
+    c = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
+                       min_area=None, occupation_modes=[], prm=False)
+    assert criteria_match(a, c) is False
