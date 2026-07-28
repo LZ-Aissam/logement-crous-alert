@@ -86,8 +86,8 @@ recherche en ouvrant une Issue :
    - **Ville** : la ville à surveiller (ex. "Brest" ou "Brest 29200").
    - **Mots-clés** (optionnel) : séparés par des virgules, voir la section `keywords`
      ci-dessus.
-   - **Email(s) de notification** (optionnel) : séparés par des virgules ; laisse vide
-     pour utiliser `ALERT_EMAIL`.
+   - **Email de notification** (obligatoire) : une seule adresse. Elle recevra un
+     email de confirmation a valider avant de recevoir des alertes.
    - **Zone géographique précise** (optionnel) : normalement laissé vide pour une
      Issue manuelle — rempli automatiquement par le formulaire public quand une
      suggestion est sélectionnée.
@@ -188,6 +188,15 @@ d'une ville. Seuls les lieux situés en France sont proposés (DOM-TOM inclus, i
 leurs propres CROUS). Les filtres prix/surface/cohabitation/PMR sont transmis tels quels au
 site CROUS, qui applique le filtrage lui-même avant que le robot ne récupère les
 résultats.
+
+Le formulaire est protege par Cloudflare Turnstile et refuse une inscription en
+double : la meme adresse ne peut pas s'abonner deux fois a une recherche aux
+criteres identiques.
+
+Les donnees d'abonnes (`searches.json`, `pending_searches.json`, `seen.json`) ne
+vivent pas dans ce depot public mais dans un depot prive dedie, pour que les
+adresses email des inscrits ne soient pas publiees. Les workflows y accedent via le
+secret `DATA_REPO_PAT`.
 
 1. Crée un compte Netlify et lie-le à ce dépôt GitHub (Netlify détecte automatiquement
    `netlify.toml` : `public/` comme dossier publié, `netlify/functions/` comme dossier
