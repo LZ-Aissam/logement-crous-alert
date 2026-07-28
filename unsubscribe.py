@@ -26,7 +26,7 @@ def main() -> int:
         return 1
 
     secret = os.environ.get("UNSUBSCRIBE_SECRET")
-    if secret is None:
+    if not secret:
         print("ERROR: UNSUBSCRIBE_SECRET n'est pas configure sur ce depot")
         return 1
 
@@ -50,15 +50,24 @@ def main() -> int:
 
     # Compute the expected token using the stored search name (for case-insensitive matching)
     expected = clog.compute_unsubscribe_token(target["name"], email)
-    if expected is None:
-        print("ERROR: UNSUBSCRIBE_SECRET n'est pas configure sur ce depot")
-        return 1
 
-    if not hmac.compare_digest(expected, token.strip()):
+    if not hmac.compare_digest(expected.encode(), token.strip().encode()):
         print("ERROR: jeton de desinscription invalide")
         return 1
 
-    emails = target.get("emails") or []
+    if not target.get("emails"):
+        # No explicit "emails" list: this search relies on the ALERT_EMAIL fallback.
+        # A valid token proves the requester is the (implicit) sole recipient, so per
+        # the "last recipient unsubscribes -> delete the whole search" rule, remove it.
+        searches = [s for s in searches if s is not target]
+        clog.save_searches(searches)
+        print(
+            f"OK: {email!r} desinscrit de {search_name!r}. "
+            "C'etait le dernier destinataire, la recherche a ete supprimee."
+        )
+        return 0
+
+    emails = target["emails"]
     remaining = [e for e in emails if e.strip().lower() != email.strip().lower()]
 
     if len(remaining) == len(emails):

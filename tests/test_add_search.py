@@ -321,6 +321,33 @@ def test_js_confirm_code_label_matches_python_constant():
     assert f"### {FIELD_CODE}" in js_source
 
 
+def test_unsubscribe_field_label_constants_match_issue_form_yaml():
+    import unsubscribe
+
+    with open(".github/ISSUE_TEMPLATE/unsubscribe.yml", encoding="utf-8") as f:
+        form = yaml.safe_load(f)
+    labels_by_id = {
+        field["id"]: field["attributes"]["label"] for field in form["body"]
+    }
+    assert labels_by_id["search"] == unsubscribe.FIELD_SEARCH
+    assert labels_by_id["email"] == unsubscribe.FIELD_EMAIL
+    assert labels_by_id["token"] == unsubscribe.FIELD_TOKEN
+
+
+def test_js_unsubscribe_labels_match_python_constants():
+    # unsubscribe.js does not hoist its labels into FIELD_* consts like
+    # create-search.js does, nor inline them directly into a "### Label" template
+    # literal like confirm-email.js does; it passes them as literal arguments to a
+    # shared section(label, value) helper. Assert those literal arguments match the
+    # Python constants so the two can't silently drift apart.
+    import unsubscribe
+
+    js_source = Path("netlify/functions/unsubscribe.js").read_text(encoding="utf-8")
+    assert f'section("{unsubscribe.FIELD_SEARCH}", fields.search)' in js_source
+    assert f'section("{unsubscribe.FIELD_EMAIL}", fields.email)' in js_source
+    assert f'section("{unsubscribe.FIELD_TOKEN}", fields.token)' in js_source
+
+
 def test_main_rejects_invalid_email_format(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
