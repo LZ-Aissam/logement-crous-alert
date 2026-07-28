@@ -8,6 +8,7 @@ import os
 import re
 import smtplib
 import sys
+import urllib.parse
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
@@ -97,6 +98,22 @@ def compute_unsubscribe_token(search_name: str, email: str) -> str | None:
         f"{search_name}|{email.lower()}".encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
+
+
+def build_unsubscribe_url(search_name: str, email: str) -> str | None:
+    token = compute_unsubscribe_token(search_name, email)
+    if token is None:
+        return None
+    query = (
+        f"search={urllib.parse.quote(search_name)}"
+        f"&email={urllib.parse.quote(email)}"
+        f"&token={token}"
+    )
+    base_url = os.environ.get("UNSUBSCRIBE_BASE_URL")
+    if base_url:
+        return f"{base_url}?{query}"
+    repo = os.environ.get("GITHUB_REPOSITORY", "OWNER/REPO")
+    return f"https://github.com/{repo}/issues/new?template=unsubscribe.yml&{query}"
 
 
 def find_new_items(

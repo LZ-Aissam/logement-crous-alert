@@ -660,3 +660,39 @@ def test_compute_unsubscribe_token_differs_per_search_and_email(monkeypatch):
     token_c = mod.compute_unsubscribe_token("Brest", "y@example.com")
 
     assert len({token_a, token_b, token_c}) == 3
+
+
+def test_build_unsubscribe_url_returns_none_when_secret_unset(monkeypatch):
+    monkeypatch.delenv("UNSUBSCRIBE_SECRET", raising=False)
+    assert mod.build_unsubscribe_url("Brest", "x@example.com") is None
+
+
+def test_build_unsubscribe_url_uses_base_url_when_set(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url("Brest", "x@example.com")
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+    )
+
+
+def test_build_unsubscribe_url_falls_back_to_github_when_base_url_unset(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.delenv("UNSUBSCRIBE_BASE_URL", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
+
+    url = mod.build_unsubscribe_url("Brest", "x@example.com")
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://github.com/LZ-Aissam/logement-crous-alert/issues/new"
+        f"?template=unsubscribe.yml&search=Brest&email=x%40example.com&token={expected_token}"
+    )
