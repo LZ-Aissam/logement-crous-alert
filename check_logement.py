@@ -19,8 +19,9 @@ SEARCH_DATA_URL = "/api/fr/search/47"
 FETCH_TIMEOUT = 20
 USER_AGENT = "Mozilla/5.0 (compatible; logement-alert-bot/1.0)"
 
-SEARCHES_PATH = Path("searches.json")
-SEEN_PATH = Path("seen.json")
+DATA_DIR = Path(os.environ.get("DATA_DIR", "."))
+SEARCHES_PATH = DATA_DIR / "searches.json"
+SEEN_PATH = DATA_DIR / "seen.json"
 
 
 class SearchFetchError(Exception):

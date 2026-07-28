@@ -2,6 +2,7 @@ import json
 import requests
 import pytest
 from email import message_from_string
+from pathlib import Path
 
 import check_logement as mod
 
@@ -877,3 +878,27 @@ def test_main_marks_seen_when_at_least_one_recipient_succeeds(tmp_path, monkeypa
     assert exit_code == 0
     seen = json.loads((tmp_path / "seen.json").read_text(encoding="utf-8"))
     assert seen == {"Brest": ["1"]}
+
+
+def test_data_dir_defaults_to_current_directory(monkeypatch):
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    import importlib
+
+    import check_logement
+
+    reloaded = importlib.reload(check_logement)
+    assert reloaded.SEARCHES_PATH == Path("searches.json")
+    assert reloaded.SEEN_PATH == Path("seen.json")
+
+
+def test_data_dir_env_var_relocates_data_files(monkeypatch):
+    monkeypatch.setenv("DATA_DIR", "data")
+    import importlib
+
+    import check_logement
+
+    reloaded = importlib.reload(check_logement)
+    assert reloaded.SEARCHES_PATH == Path("data/searches.json")
+    assert reloaded.SEEN_PATH == Path("data/seen.json")
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    importlib.reload(check_logement)

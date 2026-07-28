@@ -138,7 +138,7 @@ def discover_filters(items: list[dict[str, Any]]) -> tuple[list[str], list[str]]
     return residences, labels
 
 
-PENDING_SEARCHES_PATH = Path("pending_searches.json")
+PENDING_SEARCHES_PATH = clog.DATA_DIR / "pending_searches.json"
 
 
 def load_pending_searches(path: Path = PENDING_SEARCHES_PATH) -> dict[str, Any]:
