@@ -33,6 +33,11 @@ Dans le périmètre :
 Hors périmètre : les filtres de recherche avancés (branche
 `worktree-advanced-search-filters`, déjà terminée), et toute refonte de l'interface.
 
+Connu et laissé de côté : `unsubscribe.py` supprime une recherche de `searches.json`
+sans retirer la clé correspondante de `seen.json`, qui accumule donc des clés
+orphelines. Sans conséquence fonctionnelle — la lecture se fait par nom de recherche —
+et sans rapport avec les quatre sujets ci-dessus.
+
 ## Décisions
 
 | Sujet | Décision |
@@ -134,6 +139,22 @@ destinataire est un bug, pas un cas nominal. Le robot logue
 `check.yml:37`, et le secret peut être effacé.
 
 Le stockage reste une liste d'adresses : seule la validation à l'entrée change.
+
+### Interaction avec la désinscription
+
+`unsubscribe.py` supprime déjà la recherche entière quand son dernier destinataire se
+désinscrit (`unsubscribe.py:84-90`). Aucune recherche ne peut donc se retrouver sans
+destinataire par ce chemin, et la suppression du repli n'introduit pas de recherche
+orpheline qui logerait une erreur toutes les cinq minutes.
+
+Une seule retouche est nécessaire : la branche `unsubscribe.py:58-68` traite le cas
+d'une entrée sans clé `emails` et son commentaire explique qu'elle « repose sur le
+repli `ALERT_EMAIL` ». Ce commentaire devient faux. Le comportement, lui, reste bon —
+supprimer l'entrée est le bon nettoyage pour ce qui est désormais une anomalie. Seul
+le commentaire est à réécrire.
+
+Conséquence utile : après désinscription, l'entrée disparaît, donc se réinscrire aux
+mêmes critères redevient possible sans être bloqué par le contrôle de doublon.
 
 ## 3. Détection des doublons
 
@@ -244,6 +265,12 @@ systématiquement avec un jeton déjà consommé.
 
 **Développement local** : les clés de test Cloudflare, qui réussissent toujours,
 permettent de garder le formulaire utilisable sur `localhost` sans compte.
+
+**Le rate limit existant est conservé tel quel.** Il vit en mémoire dans la fonction
+Netlify (`_github.js:7-24`), donc il se remet à zéro à chaque démarrage à froid et ne
+couvre qu'une instance : c'est une protection faible. Turnstile devient la vraie
+défense ; le rate limit reste utile comme garde-fou gratuit contre les rafales, et le
+rendre persistant ne vaut pas la dépendance supplémentaire.
 
 ## Secrets
 
