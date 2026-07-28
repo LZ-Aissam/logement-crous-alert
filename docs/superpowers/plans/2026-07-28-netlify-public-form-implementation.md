@@ -1,5 +1,18 @@
 # Netlify Public Form Implementation Plan
 
+> **Status (2026-07-28): Code complete and merged to `master` (commit `efca126`), pushed to origin.**
+> All 7 tasks implemented, individually reviewed, plus a final whole-branch review (Ready to merge)
+> with 3 follow-up fixes applied (GitHub-error logging, README abuse-risk disclosure, JS/Python
+> field-label regression test). 82 Python tests + 21 JS tests passing.
+>
+> **Remaining next step (manual, not code):** deploy to Netlify per the README's
+> "Formulaire public sans compte GitHub (optionnel, via Netlify)" section — create the Netlify
+> site, the fine-grained GitHub PAT, the Netlify env vars (`GITHUB_PAT`, `GITHUB_REPOSITORY`), and
+> the GitHub repo secret `CONFIRMATION_BASE_URL`. This requires entering credentials/tokens into
+> Netlify's UI, which the user needs to do themselves. Once deployed, do a real end-to-end
+> verification (submit `nouvelle-recherche.html`, confirm via `confirmer.html`) — analogous to
+> Task 13 in the previous plan (`2026-07-27-keyword-filters-and-issue-form-implementation.md`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let visitors create a search and confirm their email without a GitHub account, by hosting a form on Netlify whose serverless functions create GitHub Issues on their behalf — reusing the existing Issue-Form backend (`add_search.py`, `confirm_email.py`, the two workflows) unchanged except for one confirmation-URL setting.
