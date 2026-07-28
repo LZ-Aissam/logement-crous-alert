@@ -30,8 +30,22 @@ FIELD_NAME = "Nom de la recherche"
 FIELD_CITY = "Ville"
 FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel"
 FIELD_EMAILS = "Email(s) de notification - optionnel"
+FIELD_EXTENT = "Zone geographique precise (rempli automatiquement) - optionnel"
+FIELD_MAX_PRICE = "Prix maximum - optionnel"
+FIELD_MIN_AREA = "Surface minimum en m2 - optionnel"
+FIELD_OCCUPATION_MODE = "Type de cohabitation (individuel, couple, colocation) - optionnel"
+FIELD_PRM = "Logement adapte PMR - optionnel"
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EXTENT_RE = re.compile(r"^-?\d+(\.\d+)?_-?\d+(\.\d+)?_-?\d+(\.\d+)?_-?\d+(\.\d+)?$")
+
+VALID_OCCUPATION_MODES = {"alone", "couple", "house_sharing"}
+
+OCCUPATION_MODE_LABELS = {
+    "individuel": "alone",
+    "couple": "couple",
+    "colocation": "house_sharing",
+}
 
 
 class GeocodeError(Exception):
@@ -62,17 +76,39 @@ def geocode_city(city: str) -> tuple[float, float]:
     return lon, lat
 
 
-def build_search_url(lon: float, lat: float, location_label: str) -> str:
-    west = lon - DEFAULT_HALF_LON_SPAN
-    east = lon + DEFAULT_HALF_LON_SPAN
-    north = lat + DEFAULT_HALF_LAT_SPAN
-    south = lat - DEFAULT_HALF_LAT_SPAN
-    bounds = f"{west}_{north}_{east}_{south}"
+def build_search_url(
+    lon: float | None,
+    lat: float | None,
+    location_label: str,
+    extent: str | None = None,
+    max_price: int | None = None,
+    min_area: int | None = None,
+    occupation_modes: list[str] | None = None,
+    prm: bool = False,
+) -> str:
+    if extent and EXTENT_RE.match(extent):
+        bounds = extent
+    else:
+        west = lon - DEFAULT_HALF_LON_SPAN
+        east = lon + DEFAULT_HALF_LON_SPAN
+        north = lat + DEFAULT_HALF_LAT_SPAN
+        south = lat - DEFAULT_HALF_LAT_SPAN
+        bounds = f"{west}_{north}_{east}_{south}"
     location_name = urllib.parse.quote(location_label)
-    return (
+    url = (
         f"https://trouverunlogement.lescrous.fr/tools/{TOOL_ID}/search"
         f"?bounds={bounds}&locationName={location_name}"
     )
+    if max_price is not None:
+        url += f"&maxPrice={max_price}"
+    if min_area is not None:
+        url += f"&minArea={min_area}"
+    for mode in occupation_modes or []:
+        if mode in VALID_OCCUPATION_MODES:
+            url += f"&occupationMode={mode}"
+    if prm:
+        url += "&prm=true"
+    return url
 
 
 _SECTION_RE = re.compile(r"^### (.+?)\s*$", re.M)

@@ -99,6 +99,60 @@ def test_build_search_url_contains_bounds_and_tool_id():
     assert "locationName=" in url
 
 
+def test_build_search_url_uses_extent_when_valid():
+    url = mod.build_search_url(
+        None, None, "Brest", extent="-4.5689169_48.4595521_-4.4278311_48.3572972"
+    )
+    assert url == (
+        "https://trouverunlogement.lescrous.fr/tools/47/search"
+        "?bounds=-4.5689169_48.4595521_-4.4278311_48.3572972&locationName=Brest"
+    )
+
+
+def test_build_search_url_falls_back_when_extent_invalid():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", extent="not-a-valid-extent")
+    assert url.startswith("https://trouverunlogement.lescrous.fr/tools/47/search?bounds=0.56")
+
+
+def test_build_search_url_falls_back_when_extent_missing():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000")
+    assert url.startswith("https://trouverunlogement.lescrous.fr/tools/47/search?bounds=0.56")
+
+
+def test_build_search_url_appends_max_price():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", max_price=400)
+    assert "&maxPrice=400" in url
+
+
+def test_build_search_url_appends_min_area():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", min_area=15)
+    assert "&minArea=15" in url
+
+
+def test_build_search_url_appends_occupation_modes():
+    url = mod.build_search_url(
+        0.631041, 44.202304, "Agen 47000", occupation_modes=["alone", "house_sharing"]
+    )
+    assert "&occupationMode=alone" in url
+    assert "&occupationMode=house_sharing" in url
+
+
+def test_build_search_url_ignores_invalid_occupation_mode():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", occupation_modes=["alone", "bogus"])
+    assert "&occupationMode=alone" in url
+    assert "bogus" not in url
+
+
+def test_build_search_url_appends_prm():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", prm=True)
+    assert "&prm=true" in url
+
+
+def test_build_search_url_omits_prm_when_false():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", prm=False)
+    assert "prm" not in url
+
+
 def test_build_confirmation_url_falls_back_to_github_when_base_url_unset(monkeypatch):
     monkeypatch.delenv("CONFIRMATION_BASE_URL", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
