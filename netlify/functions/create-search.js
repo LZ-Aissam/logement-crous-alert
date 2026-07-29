@@ -61,14 +61,14 @@ async function handler(event) {
   if (rateLimiter.isRateLimited(ip)) {
     return {
       statusCode: 429,
-      body: JSON.stringify({ error: "Trop de tentatives, reessaie dans une heure." }),
+      body: JSON.stringify({ error: "Trop de tentatives, réessaie dans une heure." }),
     };
   }
 
   if (!(await verifyTurnstile(fields.turnstileToken, ip))) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "Verification anti-robot echouee, recharge la page et reessaie." }),
+      body: JSON.stringify({ error: "Vérification anti-robot échouée, recharge la page et réessaie." }),
     };
   }
 
@@ -102,14 +102,14 @@ async function handler(event) {
   if (fields.maxPrice && fields.maxPrice.trim() && Number.isNaN(Number(fields.maxPrice))) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "Le prix maximum doit etre un nombre." }),
+      body: JSON.stringify({ error: "Le prix maximum doit être un nombre." }),
     };
   }
 
   if (fields.minArea && fields.minArea.trim() && Number.isNaN(Number(fields.minArea))) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "La surface minimum doit etre un nombre." }),
+      body: JSON.stringify({ error: "La surface minimum doit être un nombre." }),
     };
   }
 
@@ -138,8 +138,8 @@ async function handler(event) {
       statusCode: 409,
       body: JSON.stringify({
         error: isPending
-          ? "Une confirmation est deja en attente pour cette adresse sur cette recherche -- verifie tes emails, y compris les spams."
-          : "Tu es deja abonne a cette recherche avec cette adresse.",
+          ? "Une confirmation est déjà en attente pour cette adresse sur cette recherche : vérifie tes emails, y compris les spams."
+          : "Tu es déjà abonné à cette recherche avec cette adresse.",
       }),
     };
   }
@@ -157,7 +157,7 @@ async function handler(event) {
     console.error("create-search: GitHub API call failed", err);
     return {
       statusCode: 502,
-      body: JSON.stringify({ error: "Une erreur est survenue, reessaie dans quelques minutes." }),
+      body: JSON.stringify({ error: "Une erreur est survenue, réessaie dans quelques minutes." }),
     };
   }
 }

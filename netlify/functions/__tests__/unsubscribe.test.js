@@ -70,7 +70,7 @@ test("valid payload creates a GitHub issue matching the Issue Form contract", as
   assert.equal(result.statusCode, 200);
   assert.deepEqual(JSON.parse(result.body), { issueUrl: "https://github.com/o/r/issues/5" });
   const sentBody = JSON.parse(calls[0].options.body);
-  assert.equal(sentBody.title, "[Desinscription]");
+  assert.equal(sentBody.title, "[Désinscription]");
   assert.deepEqual(sentBody.labels, ["unsubscribe"]);
   assert.equal(
     sentBody.body,

@@ -29,7 +29,7 @@ async function handler(event) {
   if (rateLimiter.isRateLimited(clientIp(event))) {
     return {
       statusCode: 429,
-      body: JSON.stringify({ error: "Trop de tentatives, reessaie dans une heure." }),
+      body: JSON.stringify({ error: "Trop de tentatives, réessaie dans une heure." }),
     };
   }
 
@@ -53,7 +53,7 @@ async function handler(event) {
     console.error("confirm-email: GitHub API call failed", err);
     return {
       statusCode: 502,
-      body: JSON.stringify({ error: "Une erreur est survenue, reessaie dans quelques minutes." }),
+      body: JSON.stringify({ error: "Une erreur est survenue, réessaie dans quelques minutes." }),
     };
   }
 }

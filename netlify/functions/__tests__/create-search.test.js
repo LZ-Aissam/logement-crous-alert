@@ -396,7 +396,7 @@ test("a pending (unconfirmed) duplicate returns 409 with a pending-specific mess
   assert.equal(result.statusCode, 409);
   assert.match(
     JSON.parse(result.body).error,
-    /confirmation est deja en attente/
+    /confirmation est déjà en attente/
   );
   assert.equal(calls.some((c) => String(c.url).includes("api.github.com/repos/o/r/issues")), false);
 });
