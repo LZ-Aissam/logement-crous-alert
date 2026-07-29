@@ -45,6 +45,15 @@
         </div>
 
         <button id="unsubscribe-button" type="button" class="btn btn-primary btn-lg w-100 rounded-pill mt-3">Se désinscrire</button>
+
+        <div id="confirm-step" class="border rounded p-3 mt-3 d-none">
+          <div>Recherche : <strong id="confirm-search"></strong></div>
+          <div>Email : <strong id="confirm-email"></strong></div>
+          <p class="text-secondary mt-2 mb-3">Tu ne recevras plus aucune alerte pour cette recherche.</p>
+          <button id="confirm-unsubscribe-button" type="button" class="btn btn-danger w-100 rounded-pill">Oui, me désabonner</button>
+          <button id="cancel-unsubscribe-button" type="button" class="btn btn-link w-100">Annuler</button>
+        </div>
+
         <div id="result" class="alert d-none mt-4 mb-0" role="status"></div>
       </div>
     </div>
@@ -71,6 +80,11 @@
   const result = document.getElementById("result");
   const intro = document.getElementById("intro");
   const website = document.getElementById("website");
+  const confirmStep = document.getElementById("confirm-step");
+  const confirmSearch = document.getElementById("confirm-search");
+  const confirmEmail = document.getElementById("confirm-email");
+  const confirmButton = document.getElementById("confirm-unsubscribe-button");
+  const cancelButton = document.getElementById("cancel-unsubscribe-button");
 
   if (!search || !email || !token) {
     button.disabled = true;
@@ -78,10 +92,22 @@
     result.className = "alert alert-danger mt-4 mb-0";
   } else {
     intro.textContent = 'Se désinscrire de la recherche "' + search + '" pour l\'adresse ' + email + ' ?';
+    confirmSearch.textContent = search;
+    confirmEmail.textContent = email;
   }
 
-  button.addEventListener("click", async () => {
-    button.disabled = true;
+  button.addEventListener("click", () => {
+    button.classList.add("d-none");
+    confirmStep.classList.remove("d-none");
+  });
+
+  cancelButton.addEventListener("click", () => {
+    confirmStep.classList.add("d-none");
+    button.classList.remove("d-none");
+  });
+
+  confirmButton.addEventListener("click", async () => {
+    confirmButton.disabled = true;
     result.className = "alert d-none mt-4 mb-0";
 
     try {
@@ -95,7 +121,7 @@
       if (!response.ok) {
         result.textContent = data.error || "Une erreur est survenue.";
         result.className = "alert alert-danger mt-4 mb-0";
-        button.disabled = false;
+        confirmButton.disabled = false;
         return;
       }
 
