@@ -232,6 +232,60 @@ def test_format_email_body_handles_null_residence_and_booking_data():
     assert "non pr" in body  # "loyer non précisé" fallback for missing rent
 
 
+def test_render_email_html_includes_title_body_and_accent_color():
+    html = mod.render_email_html("alert", "3 nouveaux logements", "<p>Ligne un</p>")
+    assert "3 nouveaux logements" in html
+    assert "Ligne un" in html
+    assert mod.EMAIL_ACCENT["alert"] in html
+
+
+def test_render_email_html_includes_cta_link_when_given():
+    html = mod.render_email_html(
+        "confirm", "Titre", "<p>Texte</p>",
+        cta_url="https://example.com/confirmer", cta_label="Confirmer mon adresse",
+    )
+    assert 'href="https://example.com/confirmer"' in html
+    assert "Confirmer mon adresse" in html
+
+
+def test_render_email_html_omits_cta_when_not_given():
+    html = mod.render_email_html("alert", "Titre", "<p>Texte</p>")
+    assert "<a href=" not in html
+
+
+def test_format_email_html_includes_listing_details():
+    new_items = [
+        {
+            "label": "T1 meuble",
+            "residence": {"label": "Residence Foo", "address": "1 rue Test, 29200 Brest"},
+            "occupationModes": [{"type": "alone", "rent": {"min": 25000, "max": 25000}}],
+        }
+    ]
+    html = mod.format_email_html("Brest", new_items, "https://example.com/search")
+    assert "Brest" in html
+    assert "T1 meuble" in html
+    assert "Residence Foo" in html
+    assert "1 rue Test, 29200 Brest" in html
+    assert "250.00" in html
+    assert 'href="https://example.com/search"' in html
+
+
+def test_format_email_html_includes_unsubscribe_link_when_provided():
+    new_items = [{"label": "T1", "residence": {"label": "R", "address": "A"}}]
+    html = mod.format_email_html(
+        "Brest", new_items, "https://example.com/search",
+        unsubscribe_url="https://example.com/unsub?token=abc",
+    )
+    assert 'href="https://example.com/unsub?token=abc"' in html
+
+
+def test_format_email_html_handles_null_residence_and_missing_rent():
+    new_items = [{"label": "T1", "residence": None, "occupationModes": None}]
+    html = mod.format_email_html("Brest", new_items, "https://example.com/search")
+    assert "T1" in html
+    assert "non pr" in html  # "loyer non précisé" fallback for missing rent
+
+
 class _FakeSMTP:
     instances = []
 
@@ -314,6 +368,87 @@ def test_send_email_uses_starttls_for_non_ssl_port(monkeypatch):
     assert to_addrs == ["a@example.com"]
 
 
+def test_send_email_sends_multipart_alternative_when_html_body_given(monkeypatch):
+    _FakeSMTP.instances.clear()
+    monkeypatch.setattr(mod.smtplib, "SMTP", _FakeSMTP)
+
+    mod.send_email(
+        subject="Subject",
+        body="Plain body",
+        to_addrs=["a@example.com"],
+        smtp_host="smtp-relay.brevo.com",
+        smtp_port=587,
+        smtp_user="brevo-login",
+        smtp_password="brevo-password",
+        from_email="alerts@example.com",
+        html_body="<html><body>Rich body</body></html>",
+    )
+
+    smtp = _FakeSMTP.instances[0]
+    from_addr, to_addrs, msg = smtp.sent
+    assert "multipart/alternative" in msg
+    msg_obj = message_from_string(msg)
+    assert msg_obj["From"] == "alerts@example.com"
+    assert msg_obj.is_multipart()
+    plain_part, html_part = msg_obj.get_payload()
+    assert plain_part.get_payload(decode=True).decode("utf-8") == "Plain body"
+    assert "Rich body" in html_part.get_payload(decode=True).decode("utf-8")
+
+
+def test_send_email_without_html_body_stays_plain_text(monkeypatch):
+    _FakeSMTP.instances.clear()
+    monkeypatch.setattr(mod.smtplib, "SMTP", _FakeSMTP)
+
+    mod.send_email(
+        subject="Subject",
+        body="Plain body",
+        to_addrs=["a@example.com"],
+        smtp_host="smtp-relay.brevo.com",
+        smtp_port=587,
+        smtp_user="brevo-login",
+        smtp_password="brevo-password",
+        from_email="alerts@example.com",
+    )
+
+    smtp = _FakeSMTP.instances[0]
+    from_addr, to_addrs, msg = smtp.sent
+    assert "multipart" not in msg
+
+
+def test_main_passes_html_body_for_new_listing_alert(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["x@example.com"]}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(
+        mod,
+        "parse_search_results",
+        lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
+    )
+    captured = {}
+
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None):
+        captured["html_body"] = html_body
+
+    monkeypatch.setattr(mod, "send_email", fake_send_email)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert captured["html_body"] is not None
+    assert "<html" in captured["html_body"].lower()
+    assert "T1" in captured["html_body"]
+    assert "Brest" in captured["html_body"]
+
+
 def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "searches.json").write_text(
@@ -336,7 +471,7 @@ def test_main_sends_email_for_new_listings_and_updates_seen(tmp_path, monkeypatc
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: sent.append(
             (subject, to_addrs, smtp_host, smtp_port, smtp_user, from_email)
         ),
     )
@@ -376,7 +511,7 @@ def test_main_email_send_failure_does_not_block_others_or_mark_seen(tmp_path, mo
         lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
     )
 
-    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None):
         if "Rennes" in subject:
             raise mod.smtplib.SMTPException("boom")
 
@@ -668,7 +803,7 @@ def test_main_filters_items_by_keywords(tmp_path, monkeypatch):
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(body),
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: sent.append(body),
     )
 
     exit_code = mod.main()
@@ -810,7 +945,7 @@ def test_main_sends_individual_email_per_recipient_with_personalized_unsubscribe
     monkeypatch.setattr(
         mod,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append((to_addrs, body)),
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: sent.append((to_addrs, body)),
     )
 
     exit_code = mod.main()
@@ -853,7 +988,7 @@ def test_main_marks_seen_when_at_least_one_recipient_succeeds(tmp_path, monkeypa
         lambda html: {"total": {"value": 1}, "items": [{"id": 1, "label": "T1"}]},
     )
 
-    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None):
         if to_addrs == ["a@example.com"]:
             raise mod.smtplib.SMTPException("boom")
 
@@ -1007,3 +1142,27 @@ def test_main_sends_recovery_notice_after_alert(tmp_path, monkeypatch):
     assert "Brest" in body
     assert to_addrs == ["admin@example.com"]
     assert mod.load_failures() == {}
+
+
+def test_main_health_and_recovery_emails_include_html_body(tmp_path, monkeypatch):
+    _setup_single_search(tmp_path, monkeypatch, maintainer_email="admin@example.com")
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, *a, html_body=None, **k: sent.append((subject, html_body)),
+    )
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: (_ for _ in ()).throw(mod.SearchFetchError("boom")))
+    mod.main()
+    mod.main()
+    mod.main()
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(mod, "parse_search_results", lambda html: {"items": []})
+    mod.main()
+
+    assert len(sent) == 2
+    for _subject, html_body in sent:
+        assert html_body is not None
+        assert "<html" in html_body.lower()
+        assert "Brest" in html_body

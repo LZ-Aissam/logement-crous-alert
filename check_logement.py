@@ -9,6 +9,7 @@ import re
 import smtplib
 import sys
 import urllib.parse
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,22 @@ import requests
 SEARCH_DATA_URL = "/api/fr/search/47"
 FETCH_TIMEOUT = 20
 USER_AGENT = "Mozilla/5.0 (compatible; logement-alert-bot/1.0)"
+
+# HTML email styling -- matches the site's real CROUS Rennes palette
+# (public/styles.css) so alerts feel like the same product as the website.
+EMAIL_FONT = "'Segoe UI', Helvetica, Arial, sans-serif"
+EMAIL_ACCENT = {
+    "alert": "#e01020",
+    "confirm": "#006a6f",
+    "health": "#e01020",
+    "recovery": "#34c4b5",
+}
+EMAIL_FOOTER_NOTE = {
+    "alert": "Scanne toutes les 5 minutes, sans cafe ni pause dejeuner.",
+    "confirm": "Un clic suffit, aucun mot de passe a retenir ni a oublier.",
+    "health": "Un bot qui s'auto-surveille, ca aide a dormir tranquille.",
+    "recovery": "Tout est rentre dans l'ordre, le bot peut souffler.",
+}
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "."))
 SEARCHES_PATH = DATA_DIR / "searches.json"
@@ -142,8 +159,15 @@ def _send_health_alert(
     lines.append("")
     lines.append("Verifie l'onglet Actions du depot pour plus de details.")
     subject = f"[Logement][ALERTE] {len(failing)} recherche(s) en echec"
+    html_lines = [f"{len(failing)} recherche(s) en echec depuis {FAILURE_ALERT_THRESHOLD} verifications consecutives :"]
+    html_lines += [f"<strong>{name}</strong> : {error}" for name, error in failing]
+    html_lines.append("Verifie l'onglet Actions du depot pour plus de details.")
+    html_body = render_email_html("health", "Alerte", _html_paragraphs(html_lines))
     try:
-        send_email(subject, "\n".join(lines), [to_email], smtp_host, smtp_port, smtp_user, smtp_password, from_email)
+        send_email(
+            subject, "\n".join(lines), [to_email], smtp_host, smtp_port, smtp_user, smtp_password, from_email,
+            html_body=html_body,
+        )
     except Exception as exc:
         print(f"[ERROR] failed to send health alert: {exc}", file=sys.stderr)
 
@@ -161,8 +185,14 @@ def _send_recovery_notice(
     for name in recovered:
         lines.append(f"- {name}")
     subject = f"[Logement] {len(recovered)} recherche(s) retablie(s)"
+    html_lines = [f"{len(recovered)} recherche(s) retablie(s) :"]
+    html_lines += [f"<strong>{name}</strong>" for name in recovered]
+    html_body = render_email_html("recovery", "Retour a la normale", _html_paragraphs(html_lines))
     try:
-        send_email(subject, "\n".join(lines), [to_email], smtp_host, smtp_port, smtp_user, smtp_password, from_email)
+        send_email(
+            subject, "\n".join(lines), [to_email], smtp_host, smtp_port, smtp_user, smtp_password, from_email,
+            html_body=html_body,
+        )
     except Exception as exc:
         print(f"[ERROR] failed to send recovery notice: {exc}", file=sys.stderr)
 
@@ -280,6 +310,99 @@ def format_email_body(
     return "\n".join(lines)
 
 
+def _html_paragraphs(lines: list[str]) -> str:
+    return "".join(
+        f'<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#16191b;">{line}</p>'
+        for line in lines
+    )
+
+
+def render_email_html(
+    kind: str,
+    title: str,
+    body_html: str,
+    cta_url: str | None = None,
+    cta_label: str | None = None,
+) -> str:
+    """Wrap body_html in the site's branded email shell (table-based layout with
+    inline styles, since most email clients strip <style> blocks and webfonts)."""
+    accent = EMAIL_ACCENT.get(kind, "#e01020")
+    footer_note = EMAIL_FOOTER_NOTE.get(kind, "")
+    cta_html = ""
+    if cta_url and cta_label:
+        cta_html = (
+            '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;">'
+            f'<tr><td style="border-radius:999px;background:{accent};">'
+            f'<a href="{cta_url}" style="display:inline-block;padding:12px 26px;'
+            f"font-family:{EMAIL_FONT};font-weight:700;font-size:15px;color:#ffffff;"
+            f'text-decoration:none;border-radius:999px;">{cta_label}</a>'
+            "</td></tr></table>"
+        )
+    return f"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+</head>
+<body style="margin:0;padding:0;background:#e8e8e8;font-family:{EMAIL_FONT};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e8e8e8;padding:24px 0;">
+<tr><td align="center">
+<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;">
+<tr><td style="background:{accent};padding:18px 28px;">
+<span style="font-family:{EMAIL_FONT};font-weight:700;font-size:18px;color:#ffffff;">Alerte Logement CROUS</span>
+</td></tr>
+<tr><td style="padding:28px;">
+<span style="display:inline-block;border:2px solid {accent};color:{accent};font-family:{EMAIL_FONT};font-weight:700;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;padding:4px 12px;border-radius:999px;margin-bottom:16px;">{title}</span>
+{body_html}
+{cta_html}
+</td></tr>
+<tr><td style="padding:16px 28px;background:#f4f4f4;border-top:1px solid #e0e0e0;">
+<p style="margin:0;font-size:12px;color:#6b6b6b;line-height:1.5;font-family:{EMAIL_FONT};">{footer_note}</p>
+<p style="margin:6px 0 0;font-size:11px;color:#9a9a9a;font-family:{EMAIL_FONT};">Alerte Logement CROUS -- projet independant, non affilie au CROUS.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+
+def format_email_html(
+    search_name: str,
+    new_items: list[dict[str, Any]],
+    search_url: str,
+    unsubscribe_url: str | None = None,
+) -> str:
+    rows = []
+    for item in new_items:
+        residence = item.get("residence") or {}
+        label = item.get("label") or "(sans libelle)"
+        residence_label = residence.get("label") or ""
+        address = residence.get("address") or "(adresse inconnue)"
+        rent_str = _format_rent(item)
+        heading = f"{label} - {residence_label}" if residence_label else label
+        rows.append(
+            '<div style="border:1px solid #e0e0e0;border-radius:12px;padding:12px 16px;margin:0 0 10px;">'
+            f'<div style="font-weight:700;font-size:14px;color:#16191b;">{heading}</div>'
+            f'<div style="font-size:13px;color:#555555;margin-top:2px;">{address}</div>'
+            f'<div style="font-size:13px;color:#e01020;font-weight:600;margin-top:4px;">{rent_str}</div>'
+            "</div>"
+        )
+    intro = _html_paragraphs(
+        [f'{len(new_items)} nouveau(x) logement(s) pour la recherche <strong>{search_name}</strong> :']
+    )
+    outro_lines = [f'<a href="{search_url}" style="color:#006a6f;">Voir la recherche complete</a>']
+    if unsubscribe_url:
+        outro_lines.append(
+            f'<a href="{unsubscribe_url}" style="color:#9a9a9a;font-size:13px;">'
+            "Ne plus recevoir ces alertes</a>"
+        )
+    outro = _html_paragraphs(outro_lines)
+    body_html = intro + "".join(rows) + outro
+    return render_email_html("alert", f"{len(new_items)} nouveau(x)", body_html)
+
+
 def send_email(
     subject: str,
     body: str,
@@ -289,8 +412,14 @@ def send_email(
     smtp_user: str,
     smtp_password: str,
     from_email: str,
+    html_body: str | None = None,
 ) -> None:
-    msg = MIMEText(body, "plain", "utf-8")
+    if html_body:
+        msg = MIMEMultipart("alternative")
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+    else:
+        msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
     msg["From"] = from_email
     msg["To"] = ", ".join(to_addrs)
@@ -372,9 +501,11 @@ def main() -> int:
                 unsubscribe_url = build_unsubscribe_url(name, recipient)
                 try:
                     body = format_email_body(name, new_items, url, unsubscribe_url)
+                    html = format_email_html(name, new_items, url, unsubscribe_url)
                     send_email(
                         subject, body, [recipient],
                         smtp_host, smtp_port, smtp_user, smtp_password, from_email,
+                        html_body=html,
                     )
                 except Exception as exc:
                     print(f"[ERROR] {name}: failed to send email to {recipient}: {exc}", file=sys.stderr)

@@ -220,6 +220,21 @@ def build_confirmation_email_body(search_name: str, confirmation_url: str) -> st
     )
 
 
+def build_confirmation_email_html(search_name: str, confirmation_url: str) -> str:
+    lines = [
+        "Quelqu'un a demande a recevoir des alertes de logement CROUS a cette adresse "
+        f"email, pour la recherche <strong>{search_name}</strong>.",
+        f"Le lien expire dans {PENDING_EXPIRY_MINUTES} minutes. Si tu n'es pas a "
+        "l'origine de cette demande, ignore simplement cet email -- rien ne sera "
+        "active sans ta confirmation.",
+    ]
+    body_html = clog._html_paragraphs(lines)
+    return clog.render_email_html(
+        "confirm", "Confirmation requise", body_html,
+        cta_url=confirmation_url, cta_label="Confirmer mon adresse",
+    )
+
+
 def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
@@ -446,6 +461,7 @@ def main() -> int:
         token = secrets.token_urlsafe(16)
         confirmation_url = build_confirmation_url(token)
         confirmation_body = build_confirmation_email_body(name, confirmation_url)
+        confirmation_html = build_confirmation_email_html(name, confirmation_url)
         try:
             clog.send_email(
                 subject=f"Confirme ton adresse pour la recherche {name!r}",
@@ -456,6 +472,7 @@ def main() -> int:
                 smtp_user=smtp_user,
                 smtp_password=smtp_password,
                 from_email=from_email,
+                html_body=confirmation_html,
             )
         except Exception as exc:
             print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")

@@ -246,7 +246,7 @@ def test_main_adds_search_successfully(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -328,7 +328,7 @@ def test_main_warns_when_keyword_not_found_but_still_adds(tmp_path, monkeypatch,
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -380,7 +380,7 @@ def test_main_still_succeeds_when_discovery_fetch_fails(tmp_path, monkeypatch, c
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -512,7 +512,7 @@ def test_load_searches_round_trips_through_add_search(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     assert mod.main() == 0
@@ -547,7 +547,7 @@ def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: sent.append(
             (subject, to_addrs, body)
         ),
     )
@@ -563,6 +563,47 @@ def test_main_creates_pending_entry_when_email_submitted(tmp_path, monkeypatch):
     assert sent[0][1] == ["a@example.com"]
     assert "issues/new?template=confirm-email.yml&code=" in sent[0][2]
     assert "LZ-Aissam/logement-crous-alert" in sent[0][2]
+
+
+def test_build_confirmation_email_html_includes_search_name_and_cta_link():
+    html = mod.build_confirmation_email_html("Agen", "https://example.com/confirmer?code=abc")
+    assert "Agen" in html
+    assert 'href="https://example.com/confirmer?code=abc"' in html
+    assert "Confirmer" in html
+
+
+def test_main_passes_html_body_for_confirmation_email(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\na@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    captured = {}
+
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None):
+        captured["html_body"] = html_body
+
+    monkeypatch.setattr(clog, "send_email", fake_send_email)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert captured["html_body"] is not None
+    assert "<html" in captured["html_body"].lower()
+    assert "Agen" in captured["html_body"]
 
 
 def test_main_rejects_duplicate_name_already_pending(tmp_path, monkeypatch):
@@ -637,7 +678,7 @@ def test_main_reports_error_when_the_confirmation_email_fails_to_send(tmp_path, 
     monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
     monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
 
-    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email):
+    def fake_send_email(subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None):
         raise Exception("smtp boom")
 
     monkeypatch.setattr(clog, "send_email", fake_send_email)
@@ -693,7 +734,7 @@ def test_main_dedupes_case_insensitive_emails_sends_one_confirmation(tmp_path, m
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: sent.append(to_addrs),
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: sent.append(to_addrs),
     )
 
     exit_code = mod.main()
@@ -755,7 +796,7 @@ def test_main_uses_extent_instead_of_geocoding_when_valid(tmp_path, monkeypatch)
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -792,7 +833,7 @@ def test_main_applies_price_area_occupation_prm_filters(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -834,7 +875,7 @@ def test_main_applies_equipment_filters(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -875,7 +916,7 @@ def test_main_accepts_english_occupation_mode_values_from_the_public_form(tmp_pa
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
@@ -935,7 +976,7 @@ def test_main_ignores_unrecognized_occupation_mode_label(tmp_path, monkeypatch):
     monkeypatch.setattr(
         clog,
         "send_email",
-        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email, html_body=None: None,
     )
 
     exit_code = mod.main()
