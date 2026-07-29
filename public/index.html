@@ -122,6 +122,18 @@
           <h2 class="fw-bold mb-1">Créer ma recherche</h2>
           <p class="text-secondary mb-4">Ça prend 30 secondes.</p>
 
+          <div class="d-flex gap-3 p-3 mb-4 rounded-3"
+               style="background: rgba(0, 106, 111, 0.08); border: 1px solid rgba(0, 106, 111, 0.2);">
+            <i class="bi bi-lightbulb-fill fs-4 flex-shrink-0" style="color: var(--front-greenwater);"></i>
+            <div>
+              <div class="fw-semibold mb-1">Le tip pour maximiser tes chances</div>
+              <div class="text-secondary small">Ne renseigne que la ville et laisse les autres filtres vides. Plus
+              ta recherche est précise, plus c'est rare et long d'avoir une disponibilité qui correspond. Le but :
+              trouver un logement pour tes études, pas le logement parfait dès le premier email. Tu peux toujours
+              refuser une offre qui ne te convient pas.</div>
+            </div>
+          </div>
+
           <form id="search-form" novalidate>
             <div class="mb-3">
               <label for="name" class="form-label fw-semibold">Nom de la recherche</label>
@@ -237,6 +249,121 @@
   </div>
 </section>
 
+<section class="py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="text-center mb-5 reveal">
+          <div class="section-eyebrow mb-2" style="color: var(--front-greenwater);">Questions fréquentes</div>
+          <h2 class="fw-bold">On répond à tes questions</h2>
+        </div>
+
+        <div class="accordion reveal" id="faq">
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq-1">
+                C'est vraiment gratuit ?
+              </button>
+            </h3>
+            <div id="faq-1" class="accordion-collapse collapse show" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Oui, entièrement gratuit et sans création de compte. Tu
+              donnes juste ton email pour recevoir les alertes.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-2">
+                Comment ça marche techniquement ?
+              </button>
+            </h3>
+            <div id="faq-2" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Un robot vérifie automatiquement les nouvelles
+              disponibilités toutes les 5 minutes sur le site officiel du CROUS, et t'envoie un email dès qu'un
+              logement correspond à ta recherche.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-3">
+                Vais-je recevoir plein d'emails, ou du spam ?
+              </button>
+            </h3>
+            <div id="faq-3" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Non. Tu reçois un email de confirmation à l'inscription,
+              puis une alerte uniquement quand un nouveau logement correspond à tes critères. Rien d'autre.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-4">
+                Pourquoi dois-je confirmer mon email ?
+              </button>
+            </h3>
+            <div id="faq-4" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Pour éviter que quelqu'un inscrive l'adresse d'un(e)
+              autre étudiant(e) sans son accord. Tant que tu n'as pas cliqué sur le lien de confirmation, aucune
+              alerte n'est envoyée.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-5">
+                Puis-je créer plusieurs alertes ?
+              </button>
+            </h3>
+            <div id="faq-5" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Oui, autant que tu veux, avec des villes ou des critères
+              différents à chaque fois.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-6">
+                Comment me désabonner ?
+              </button>
+            </h3>
+            <div id="faq-6" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Chaque email d'alerte contient un lien de désinscription
+              en un clic.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-7">
+                Ce site est-il affilié au CROUS ?
+              </button>
+            </h3>
+            <div id="faq-7" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Non, c'est un projet indépendant, non affilié au
+              CROUS.</div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-8">
+                Pourquoi vaut-il mieux mettre le moins de filtres possible ?
+              </button>
+            </h3>
+            <div id="faq-8" class="accordion-collapse collapse" data-bs-parent="#faq">
+              <div class="accordion-body text-secondary">Plus ta recherche est précise (prix, mots-clés,
+              équipements...), moins il y a de logements qui correspondent, donc moins d'alertes et moins de
+              chances d'en trouver un à temps. Pour maximiser tes chances, commence large avec juste la ville : tu
+              pourras toujours refuser un logement qui ne te convient pas.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer class="py-4 text-center text-secondary small">
   <div class="container">
     Alerte Logement CROUS, projet indépendant non affilié au CROUS.
@@ -248,6 +375,7 @@
   </div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
     const revealEls = document.querySelectorAll(".reveal");

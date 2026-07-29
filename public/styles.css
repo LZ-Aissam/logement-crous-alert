@@ -163,3 +163,13 @@ h1, h2, h3, .display-1, .display-2, .display-3, .display-4 {
 .navbar-brand i { color: var(--color-red); }
 
 .card { box-shadow: 0 1px 2px rgba(22,25,27,0.04); }
+
+/* FAQ accordion — swap Bootstrap's default blue active state for the brand teal. */
+.accordion {
+  --bs-accordion-active-color: var(--front-greenwater);
+  --bs-accordion-active-bg: rgba(0, 106, 111, 0.08);
+  --bs-accordion-btn-focus-border-color: var(--front-greenwater);
+  --bs-accordion-btn-focus-box-shadow: 0 0 0 0.25rem rgba(0, 106, 111, 0.2);
+  --bs-accordion-btn-active-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23006a6f'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+}
+.accordion-button { font-weight: 600; }
