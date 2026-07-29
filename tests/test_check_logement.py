@@ -890,6 +890,39 @@ def test_build_unsubscribe_url_falls_back_to_github_when_base_url_unset(monkeypa
     )
 
 
+def test_build_unsubscribe_url_includes_city_when_provided(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url("Brest", "x@example.com", city="Rennes")
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}&city=Rennes"
+    )
+
+
+def test_build_unsubscribe_url_includes_city_and_keywords_when_provided(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url(
+        "Brest", "x@example.com", city="Rennes", keywords=["studio", "kergoat"]
+    )
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+        "&city=Rennes&keywords=studio%2C%20kergoat"
+    )
+
+
 def test_format_email_body_appends_unsubscribe_link_when_provided():
     new_items = [{"id": 1, "label": "T1", "residence": {"label": "R"}}]
 

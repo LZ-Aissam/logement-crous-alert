@@ -49,6 +49,8 @@
         <div id="confirm-step" class="border rounded p-3 mt-3 d-none">
           <div>Recherche : <strong id="confirm-search"></strong></div>
           <div>Email : <strong id="confirm-email"></strong></div>
+          <div id="confirm-city-row" class="d-none">Ville : <strong id="confirm-city"></strong></div>
+          <div id="confirm-keywords-row" class="d-none">Mots-clés : <strong id="confirm-keywords"></strong></div>
           <p class="text-secondary mt-2 mb-3">Tu ne recevras plus aucune alerte pour cette recherche.</p>
           <button id="confirm-unsubscribe-button" type="button" class="btn btn-danger w-100 rounded-pill">Oui, me désabonner</button>
           <button id="cancel-unsubscribe-button" type="button" class="btn btn-link w-100">Annuler</button>
@@ -76,6 +78,8 @@
   const search = params.get("search");
   const email = params.get("email");
   const token = params.get("token");
+  const city = params.get("city");
+  const keywords = params.get("keywords");
   const button = document.getElementById("unsubscribe-button");
   const result = document.getElementById("result");
   const intro = document.getElementById("intro");
@@ -83,6 +87,10 @@
   const confirmStep = document.getElementById("confirm-step");
   const confirmSearch = document.getElementById("confirm-search");
   const confirmEmail = document.getElementById("confirm-email");
+  const confirmCityRow = document.getElementById("confirm-city-row");
+  const confirmCity = document.getElementById("confirm-city");
+  const confirmKeywordsRow = document.getElementById("confirm-keywords-row");
+  const confirmKeywords = document.getElementById("confirm-keywords");
   const confirmButton = document.getElementById("confirm-unsubscribe-button");
   const cancelButton = document.getElementById("cancel-unsubscribe-button");
 
@@ -94,6 +102,14 @@
     intro.textContent = 'Se désinscrire de la recherche "' + search + '" pour l\'adresse ' + email + ' ?';
     confirmSearch.textContent = search;
     confirmEmail.textContent = email;
+    if (city) {
+      confirmCity.textContent = city;
+      confirmCityRow.classList.remove("d-none");
+    }
+    if (keywords) {
+      confirmKeywords.textContent = keywords;
+      confirmKeywordsRow.classList.remove("d-none");
+    }
   }
 
   button.addEventListener("click", () => {

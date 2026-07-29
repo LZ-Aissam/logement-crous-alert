@@ -208,7 +208,12 @@ def compute_unsubscribe_token(search_name: str, email: str) -> str | None:
     ).hexdigest()
 
 
-def build_unsubscribe_url(search_name: str, email: str) -> str | None:
+def build_unsubscribe_url(
+    search_name: str,
+    email: str,
+    city: str | None = None,
+    keywords: list[str] | None = None,
+) -> str | None:
     token = compute_unsubscribe_token(search_name, email)
     if token is None:
         return None
@@ -217,6 +222,10 @@ def build_unsubscribe_url(search_name: str, email: str) -> str | None:
         f"&email={urllib.parse.quote(email)}"
         f"&token={token}"
     )
+    if city:
+        query += f"&city={urllib.parse.quote(city)}"
+    if keywords:
+        query += f"&keywords={urllib.parse.quote(', '.join(keywords))}"
     base_url = os.environ.get("UNSUBSCRIBE_BASE_URL")
     if base_url:
         return f"{base_url}?{query}"
@@ -498,7 +507,9 @@ def main() -> int:
         if new_items:
             sent_count = 0
             for recipient in recipients:
-                unsubscribe_url = build_unsubscribe_url(name, recipient)
+                unsubscribe_url = build_unsubscribe_url(
+                    name, recipient, search.get("city"), search.get("keywords")
+                )
                 try:
                     body = format_email_body(name, new_items, url, unsubscribe_url)
                     html = format_email_html(name, new_items, url, unsubscribe_url)
