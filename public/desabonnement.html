@@ -51,6 +51,11 @@
           <div>Email : <strong id="confirm-email"></strong></div>
           <div id="confirm-city-row" class="d-none">Ville : <strong id="confirm-city"></strong></div>
           <div id="confirm-keywords-row" class="d-none">Mots-clés : <strong id="confirm-keywords"></strong></div>
+          <div id="confirm-max-price-row" class="d-none">Prix maximum : <strong id="confirm-max-price"></strong> €</div>
+          <div id="confirm-min-area-row" class="d-none">Surface minimum : <strong id="confirm-min-area"></strong> m²</div>
+          <div id="confirm-occupation-row" class="d-none">Type de cohabitation : <strong id="confirm-occupation"></strong></div>
+          <div id="confirm-equipments-row" class="d-none">Équipements : <strong id="confirm-equipments"></strong></div>
+          <div id="confirm-prm-row" class="d-none">Logement PMR : <strong>Oui</strong></div>
           <p class="text-secondary mt-2 mb-3">Tu ne recevras plus aucune alerte pour cette recherche.</p>
           <button id="confirm-unsubscribe-button" type="button" class="btn btn-danger w-100 rounded-pill">Oui, me désabonner</button>
           <button id="cancel-unsubscribe-button" type="button" class="btn btn-link w-100">Annuler</button>
@@ -80,6 +85,12 @@
   const token = params.get("token");
   const city = params.get("city");
   const keywords = params.get("keywords");
+  const maxPrice = params.get("maxPrice");
+  const minArea = params.get("minArea");
+  const occupationModes = params.get("occupationModes");
+  const prm = params.get("prm");
+  const equipments = params.get("equipments");
+  const occupationLabels = { alone: "Individuel", couple: "Couple", house_sharing: "Colocation" };
   const button = document.getElementById("unsubscribe-button");
   const result = document.getElementById("result");
   const intro = document.getElementById("intro");
@@ -91,6 +102,15 @@
   const confirmCity = document.getElementById("confirm-city");
   const confirmKeywordsRow = document.getElementById("confirm-keywords-row");
   const confirmKeywords = document.getElementById("confirm-keywords");
+  const confirmMaxPriceRow = document.getElementById("confirm-max-price-row");
+  const confirmMaxPrice = document.getElementById("confirm-max-price");
+  const confirmMinAreaRow = document.getElementById("confirm-min-area-row");
+  const confirmMinArea = document.getElementById("confirm-min-area");
+  const confirmOccupationRow = document.getElementById("confirm-occupation-row");
+  const confirmOccupation = document.getElementById("confirm-occupation");
+  const confirmEquipmentsRow = document.getElementById("confirm-equipments-row");
+  const confirmEquipments = document.getElementById("confirm-equipments");
+  const confirmPrmRow = document.getElementById("confirm-prm-row");
   const confirmButton = document.getElementById("confirm-unsubscribe-button");
   const cancelButton = document.getElementById("cancel-unsubscribe-button");
 
@@ -109,6 +129,28 @@
     if (keywords) {
       confirmKeywords.textContent = keywords;
       confirmKeywordsRow.classList.remove("d-none");
+    }
+    if (maxPrice) {
+      confirmMaxPrice.textContent = maxPrice;
+      confirmMaxPriceRow.classList.remove("d-none");
+    }
+    if (minArea) {
+      confirmMinArea.textContent = minArea;
+      confirmMinAreaRow.classList.remove("d-none");
+    }
+    if (occupationModes) {
+      confirmOccupation.textContent = occupationModes
+        .split(",")
+        .map((mode) => occupationLabels[mode] || mode)
+        .join(", ");
+      confirmOccupationRow.classList.remove("d-none");
+    }
+    if (equipments) {
+      confirmEquipments.textContent = equipments.split(",").join(", ");
+      confirmEquipmentsRow.classList.remove("d-none");
+    }
+    if (prm === "1") {
+      confirmPrmRow.classList.remove("d-none");
     }
   }
 

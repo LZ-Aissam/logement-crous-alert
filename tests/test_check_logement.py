@@ -923,6 +923,108 @@ def test_build_unsubscribe_url_includes_city_and_keywords_when_provided(monkeypa
     )
 
 
+def test_build_unsubscribe_url_includes_max_price_and_min_area(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url(
+        "Brest", "x@example.com", max_price=500, min_area=15
+    )
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+        "&maxPrice=500&minArea=15"
+    )
+
+
+def test_build_unsubscribe_url_includes_occupation_modes_when_provided(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url(
+        "Brest", "x@example.com", occupation_modes=["alone", "house_sharing"]
+    )
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+        "&occupationModes=alone%2Chouse_sharing"
+    )
+
+
+def test_build_unsubscribe_url_includes_prm_only_when_true(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+
+    url_true = mod.build_unsubscribe_url("Brest", "x@example.com", prm=True)
+    assert url_true == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}&prm=1"
+    )
+
+    url_false = mod.build_unsubscribe_url("Brest", "x@example.com", prm=False)
+    assert url_false == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+    )
+
+
+def test_build_unsubscribe_url_includes_equipments_when_provided(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url(
+        "Brest", "x@example.com", equipments=["Douche", "Frigo"]
+    )
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+        "&equipments=Douche%2CFrigo"
+    )
+
+
+def test_build_unsubscribe_url_includes_all_filters_combined(monkeypatch):
+    monkeypatch.setenv("UNSUBSCRIBE_SECRET", "topsecret")
+    monkeypatch.setenv("UNSUBSCRIBE_BASE_URL", "https://example.netlify.app/desabonnement.html")
+
+    url = mod.build_unsubscribe_url(
+        "Brest",
+        "x@example.com",
+        city="Rennes",
+        keywords=["studio"],
+        max_price=500,
+        min_area=15,
+        occupation_modes=["alone"],
+        prm=True,
+        equipments=["Douche"],
+    )
+
+    expected_token = hmac_module.new(
+        b"topsecret", b"Brest|x@example.com", hashlib.sha256
+    ).hexdigest()
+    assert url == (
+        "https://example.netlify.app/desabonnement.html"
+        f"?search=Brest&email=x%40example.com&token={expected_token}"
+        "&city=Rennes&keywords=studio"
+        "&maxPrice=500&minArea=15&occupationModes=alone&prm=1&equipments=Douche"
+    )
+
+
 def test_format_email_body_appends_unsubscribe_link_when_provided():
     new_items = [{"id": 1, "label": "T1", "residence": {"label": "R"}}]
 

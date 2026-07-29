@@ -213,6 +213,11 @@ def build_unsubscribe_url(
     email: str,
     city: str | None = None,
     keywords: list[str] | None = None,
+    max_price: int | None = None,
+    min_area: int | None = None,
+    occupation_modes: list[str] | None = None,
+    prm: bool = False,
+    equipments: list[str] | None = None,
 ) -> str | None:
     token = compute_unsubscribe_token(search_name, email)
     if token is None:
@@ -226,6 +231,16 @@ def build_unsubscribe_url(
         query += f"&city={urllib.parse.quote(city)}"
     if keywords:
         query += f"&keywords={urllib.parse.quote(', '.join(keywords))}"
+    if max_price:
+        query += f"&maxPrice={max_price}"
+    if min_area:
+        query += f"&minArea={min_area}"
+    if occupation_modes:
+        query += f"&occupationModes={urllib.parse.quote(','.join(occupation_modes))}"
+    if prm:
+        query += "&prm=1"
+    if equipments:
+        query += f"&equipments={urllib.parse.quote(','.join(equipments))}"
     base_url = os.environ.get("UNSUBSCRIBE_BASE_URL")
     if base_url:
         return f"{base_url}?{query}"
@@ -507,8 +522,17 @@ def main() -> int:
         if new_items:
             sent_count = 0
             for recipient in recipients:
+                criteria = search.get("criteria") or {}
                 unsubscribe_url = build_unsubscribe_url(
-                    name, recipient, search.get("city"), search.get("keywords")
+                    name,
+                    recipient,
+                    city=criteria.get("city"),
+                    keywords=search.get("keywords"),
+                    max_price=criteria.get("maxPrice"),
+                    min_area=criteria.get("minArea"),
+                    occupation_modes=criteria.get("occupationModes"),
+                    prm=criteria.get("prm", False),
+                    equipments=criteria.get("equipments"),
                 )
                 try:
                     body = format_email_body(name, new_items, url, unsubscribe_url)
