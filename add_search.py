@@ -36,6 +36,7 @@ FIELD_MAX_PRICE = "Prix maximum - optionnel"
 FIELD_MIN_AREA = "Surface minimum en m2 - optionnel"
 FIELD_OCCUPATION_MODE = "Type de cohabitation (individuel, couple, colocation) - optionnel"
 FIELD_PRM = "Logement adapte PMR - optionnel"
+FIELD_EQUIPMENTS = "Equipements (douche, evier + plaque, frigo, micro-onde, wc) - optionnel"
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 EXTENT_RE = re.compile(r"^-?\d+(\.\d+)?_-?\d+(\.\d+)?_-?\d+(\.\d+)?_-?\d+(\.\d+)?$")
@@ -46,6 +47,18 @@ OCCUPATION_MODE_LABELS = {
     "individuel": "alone",
     "couple": "couple",
     "colocation": "house_sharing",
+}
+
+# CROUS's own equipment filter values (URL param `equipments`, one per value) --
+# the French labels it expects are also what we show in the UI, so no separate
+# internal-token mapping is needed like OCCUPATION_MODE_LABELS above. Keyed by
+# lowercase for case-insensitive matching from manual issue submissions.
+EQUIPMENT_LABELS = {
+    "douche": "Douche",
+    "evier + plaque": "Evier + plaque",
+    "frigo": "Frigo",
+    "micro-onde": "Micro-onde",
+    "wc": "WC",
 }
 
 
@@ -86,6 +99,7 @@ def build_search_url(
     min_area: int | None = None,
     occupation_modes: list[str] | None = None,
     prm: bool = False,
+    equipments: list[str] | None = None,
 ) -> str:
     if extent and EXTENT_RE.match(extent):
         bounds = extent
@@ -109,6 +123,9 @@ def build_search_url(
             url += f"&occupationMode={mode}"
     if prm:
         url += "&prm=true"
+    for equipment in equipments or []:
+        if equipment in EQUIPMENT_LABELS.values():
+            url += f"&equipments={urllib.parse.quote(equipment)}"
     return url
 
 
@@ -200,6 +217,7 @@ def main() -> int:
     min_area_raw = fields.get(FIELD_MIN_AREA)
     occupation_mode_raw = fields.get(FIELD_OCCUPATION_MODE)
     prm_raw = fields.get(FIELD_PRM)
+    equipments_raw = fields.get(FIELD_EQUIPMENTS)
 
     if not name or not city:
         print("ERROR: le nom de la recherche et la ville sont obligatoires")
@@ -236,6 +254,12 @@ def main() -> int:
             occupation_modes.append(normalized)
         elif normalized in OCCUPATION_MODE_LABELS:
             occupation_modes.append(OCCUPATION_MODE_LABELS[normalized])
+
+    equipments = []
+    for label in _split_csv(equipments_raw):
+        normalized = label.strip().lower()
+        if normalized in EQUIPMENT_LABELS:
+            equipments.append(EQUIPMENT_LABELS[normalized])
 
     prm = bool(prm_raw)
 
@@ -283,6 +307,7 @@ def main() -> int:
         min_area=min_area,
         occupation_modes=occupation_modes,
         prm=prm,
+        equipments=equipments,
     )
     keywords = _split_csv(keywords_raw)
     emails = _split_csv(emails_raw)
@@ -316,6 +341,7 @@ def main() -> int:
         occupation_modes=occupation_modes,
         prm=prm,
         keywords=keywords,
+        equipments=equipments,
     )
 
     submitted = emails[0].strip().lower()

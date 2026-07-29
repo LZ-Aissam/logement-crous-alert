@@ -84,6 +84,18 @@
       "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "keywords": ["kergoat"] },
       "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
       "expected": false
+    },
+    {
+      "description": "equipments same set, different order -> match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "equipments": ["Douche", "Frigo"] },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "equipments": ["Frigo", "Douche"] },
+      "expected": true
+    },
+    {
+      "description": "differing equipments -> no match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "equipments": ["Douche"] },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "equipments": ["Frigo"] },
+      "expected": false
     }
   ]
 }

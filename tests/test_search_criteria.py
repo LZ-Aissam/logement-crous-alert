@@ -15,6 +15,7 @@ def test_build_criteria_shape():
         occupation_modes=["house_sharing", "alone", "alone"],
         prm=True,
         keywords=["Kergoat", "studio"],
+        equipments=["Frigo", "Douche", "Douche"],
     )
     assert criteria == {
         "extent": "-1.75_48.16_-1.61_48.05",
@@ -24,7 +25,16 @@ def test_build_criteria_shape():
         "occupationModes": ["alone", "house_sharing"],
         "prm": True,
         "keywords": ["kergoat", "studio"],
+        "equipments": ["Douche", "Frigo"],
     }
+
+
+def test_build_criteria_equipments_default_to_empty_list():
+    criteria = build_criteria(
+        city="Brest", extent=None, max_price=None, min_area=None,
+        occupation_modes=[], prm=False,
+    )
+    assert criteria["equipments"] == []
 
 
 def test_build_criteria_keywords_default_to_empty_list():
@@ -156,3 +166,19 @@ def test_criteria_match_keywords_present_vs_absent_is_not_a_match():
     b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
                        occupation_modes=["house_sharing"], prm=False)
     assert criteria_match(a, b) is False
+
+
+def test_criteria_match_rejects_differing_equipments():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=[], prm=False, equipments=["Douche"])
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=[], prm=False, equipments=["Frigo"])
+    assert criteria_match(a, b) is False
+
+
+def test_criteria_match_ignores_equipment_order():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=[], prm=False, equipments=["Douche", "Frigo"])
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=[], prm=False, equipments=["Frigo", "Douche"])
+    assert criteria_match(a, b) is True

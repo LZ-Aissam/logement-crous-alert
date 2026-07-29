@@ -84,3 +84,13 @@ body:
       placeholder: "oui"
     validations:
       required: false
+  - type: input
+    id: equipments
+    attributes:
+      label: Equipements (douche, evier + plaque, frigo, micro-onde, wc) - optionnel
+      description: >-
+        Separes par des virgules parmi : douche, evier + plaque, frigo, micro-onde, wc.
+        Laisse vide pour ne pas filtrer par equipement.
+      placeholder: douche, frigo
+    validations:
+      required: false

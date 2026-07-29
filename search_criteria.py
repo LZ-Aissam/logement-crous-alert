@@ -26,6 +26,7 @@ def build_criteria(
     occupation_modes: list[str],
     prm: bool,
     keywords: list[str] | None = None,
+    equipments: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "extent": (extent or "").strip(),
@@ -35,6 +36,7 @@ def build_criteria(
         "occupationModes": sorted(set(occupation_modes)),
         "prm": bool(prm),
         "keywords": sorted({kw.strip().lower() for kw in (keywords or []) if kw and kw.strip()}),
+        "equipments": sorted(set(equipments or [])),
     }
 
 
@@ -54,4 +56,5 @@ def criteria_match(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
         and sorted(a.get("occupationModes") or []) == sorted(b.get("occupationModes") or [])
         and bool(a.get("prm")) == bool(b.get("prm"))
         and sorted(a.get("keywords") or []) == sorted(b.get("keywords") or [])
+        and sorted(a.get("equipments") or []) == sorted(b.get("equipments") or [])
     )

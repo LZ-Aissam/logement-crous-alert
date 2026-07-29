@@ -179,6 +179,30 @@
               </div>
             </div>
 
+            <div class="mb-3">
+              <span class="form-label fw-semibold d-block">Équipements - optionnel</span>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="equipment-douche" name="equipments" value="Douche">
+                <label class="form-check-label" for="equipment-douche">Douche</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="equipment-evier" name="equipments" value="Evier + plaque">
+                <label class="form-check-label" for="equipment-evier">Évier + plaque</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="equipment-frigo" name="equipments" value="Frigo">
+                <label class="form-check-label" for="equipment-frigo">Frigo</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="equipment-micro-onde" name="equipments" value="Micro-onde">
+                <label class="form-check-label" for="equipment-micro-onde">Micro-onde</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="equipment-wc" name="equipments" value="WC">
+                <label class="form-check-label" for="equipment-wc">WC</label>
+              </div>
+            </div>
+
             <div class="mb-4">
               <label for="emails" class="form-label fw-semibold">Email de notification</label>
               <input id="emails" name="emails" type="email" required
@@ -400,6 +424,9 @@
         .map((cb) => cb.value)
         .join(","),
       prm: form.prm.checked ? "true" : "",
+      equipments: Array.from(form.querySelectorAll('input[name="equipments"]:checked'))
+        .map((cb) => cb.value)
+        .join(","),
     };
 
     try {

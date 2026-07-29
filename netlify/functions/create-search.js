@@ -20,6 +20,7 @@ const FIELD_MAX_PRICE = "Prix maximum - optionnel";
 const FIELD_MIN_AREA = "Surface minimum en m2 - optionnel";
 const FIELD_OCCUPATION_MODE = "Type de cohabitation (individuel, couple, colocation) - optionnel";
 const FIELD_PRM = "Logement adapte PMR - optionnel";
+const FIELD_EQUIPMENTS = "Equipements (douche, evier + plaque, frigo, micro-onde, wc) - optionnel";
 
 function section(label, value) {
   const trimmed = value && value.trim();
@@ -37,6 +38,7 @@ function buildIssueBody(fields) {
     section(FIELD_MIN_AREA, fields.minArea),
     section(FIELD_OCCUPATION_MODE, fields.occupationMode),
     section(FIELD_PRM, fields.prm),
+    section(FIELD_EQUIPMENTS, fields.equipments),
   ].join("\n");
 }
 

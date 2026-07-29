@@ -165,6 +165,20 @@ def test_build_search_url_omits_prm_when_false():
     assert "prm" not in url
 
 
+def test_build_search_url_appends_equipments():
+    url = mod.build_search_url(
+        0.631041, 44.202304, "Agen 47000", equipments=["Douche", "Evier + plaque"]
+    )
+    assert "&equipments=Douche" in url
+    assert "&equipments=Evier%20%2B%20plaque" in url
+
+
+def test_build_search_url_ignores_invalid_equipment():
+    url = mod.build_search_url(0.631041, 44.202304, "Agen 47000", equipments=["Douche", "bogus"])
+    assert "&equipments=Douche" in url
+    assert "bogus" not in url
+
+
 def test_build_confirmation_url_falls_back_to_github_when_base_url_unset(monkeypatch):
     monkeypatch.delenv("CONFIRMATION_BASE_URL", raising=False)
     monkeypatch.setenv("GITHUB_REPOSITORY", "LZ-Aissam/logement-crous-alert")
@@ -405,6 +419,7 @@ def test_field_label_constants_match_issue_form_yaml():
     assert labels_by_id["minArea"] == mod.FIELD_MIN_AREA
     assert labels_by_id["occupationMode"] == mod.FIELD_OCCUPATION_MODE
     assert labels_by_id["prm"] == mod.FIELD_PRM
+    assert labels_by_id["equipments"] == mod.FIELD_EQUIPMENTS
 
 
 def test_js_field_labels_match_python_constants():
@@ -418,6 +433,7 @@ def test_js_field_labels_match_python_constants():
     assert f'const FIELD_MIN_AREA = "{mod.FIELD_MIN_AREA}";' in js_source
     assert f'const FIELD_OCCUPATION_MODE = "{mod.FIELD_OCCUPATION_MODE}";' in js_source
     assert f'const FIELD_PRM = "{mod.FIELD_PRM}";' in js_source
+    assert f'const FIELD_EQUIPMENTS = "{mod.FIELD_EQUIPMENTS}";' in js_source
 
 
 def test_js_confirm_code_label_matches_python_constant():
@@ -789,6 +805,46 @@ def test_main_applies_price_area_occupation_prm_filters(tmp_path, monkeypatch):
     assert "&occupationMode=alone" in url
     assert "&occupationMode=house_sharing" in url
     assert "&prm=true" in url
+
+
+def test_main_applies_equipment_filters(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
+    body = (
+        "### Nom de la recherche\n\nCorte\n\n"
+        "### Ville\n\nCorte 20250\n\n"
+        "### Mots-clés (résidence, type de logement...) - optionnel\n\n_No response_\n\n"
+        "### Email de notification\n\na@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n_No response_\n\n"
+        "### Prix maximum - optionnel\n\n_No response_\n\n"
+        "### Surface minimum en m2 - optionnel\n\n_No response_\n\n"
+        "### Type de cohabitation (individuel, couple, colocation) - optionnel\n\n_No response_\n\n"
+        "### Logement adapte PMR - optionnel\n\n_No response_\n\n"
+        "### Equipements (douche, evier + plaque, frigo, micro-onde, wc) - optionnel\n\nDouche, Frigo\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (9.15, 42.3))
+    monkeypatch.setattr(clog, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(clog, "parse_search_results", lambda html: {"items": []})
+    monkeypatch.setattr(
+        clog,
+        "send_email",
+        lambda subject, body, to_addrs, smtp_host, smtp_port, smtp_user, smtp_password, from_email: None,
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    url = pending["Corte"]["search"]["url"]
+    assert "&equipments=Douche" in url
+    assert "&equipments=Frigo" in url
+    assert pending["Corte"]["search"]["criteria"]["equipments"] == ["Douche", "Frigo"]
 
 
 def test_main_accepts_english_occupation_mode_values_from_the_public_form(tmp_path, monkeypatch):

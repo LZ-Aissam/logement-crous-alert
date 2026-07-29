@@ -199,7 +199,7 @@ test("a rate-limited request makes zero outbound calls (no Turnstile, no data-re
   assert.equal(calls.length, 0);
 });
 
-test("valid payload includes the 5 new optional sections in the issue body", async (t) => {
+test("valid payload includes the 6 new optional sections in the issue body", async (t) => {
   stubEnv(t);
   const originalRepo = process.env.GITHUB_REPOSITORY;
   const originalToken = process.env.GITHUB_PAT;
@@ -221,6 +221,7 @@ test("valid payload includes the 5 new optional sections in the issue body", asy
         minArea: "15",
         occupationMode: "alone,house_sharing",
         prm: "true",
+        equipments: "Douche,Frigo",
         emails: "a@example.com",
         turnstileToken: "tok",
       },
@@ -243,6 +244,10 @@ test("valid payload includes the 5 new optional sections in the issue body", asy
     /### Type de cohabitation \(individuel, couple, colocation\) - optionnel\n\nalone,house_sharing\n/
   );
   assert.match(sentBody.body, /### Logement adapte PMR - optionnel\n\ntrue\n/);
+  assert.match(
+    sentBody.body,
+    /### Equipements \(douche, evier \+ plaque, frigo, micro-onde, wc\) - optionnel\n\nDouche,Frigo\n/
+  );
 });
 
 test("non-numeric maxPrice returns 400", async (t) => {

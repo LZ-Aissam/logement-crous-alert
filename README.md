@@ -98,6 +98,8 @@ recherche en ouvrant une Issue :
      séparés par des virgules.
    - **Logement adapté PMR** (optionnel) : écris `oui` pour filtrer sur
      l'accessibilité PMR.
+   - **Équipements** (optionnel) : `douche`, `evier + plaque`, `frigo`, `micro-onde`,
+     `wc`, séparés par des virgules.
 4. Soumets l'issue.
 
 À noter : la zone de recherche créée via ce formulaire a une **taille fixe** (environ
@@ -173,9 +175,9 @@ Le champ "Ville, résidence ou lieu d'étude" propose des suggestions en direct 
 résidence, école...) via le même service que le site CROUS officiel — sélectionner une
 suggestion cible précisément le bon endroit plutôt qu'une zone approximative autour
 d'une ville. Seuls les lieux situés en France sont proposés (DOM-TOM inclus, ils ont
-leurs propres CROUS). Les filtres prix/surface/cohabitation/PMR sont transmis tels quels au
-site CROUS, qui applique le filtrage lui-même avant que le robot ne récupère les
-résultats.
+leurs propres CROUS). Les filtres prix/surface/cohabitation/PMR/équipements sont transmis
+tels quels au site CROUS, qui applique le filtrage lui-même avant que le robot ne récupère
+les résultats.
 
 Le formulaire est protégé par Cloudflare Turnstile et refuse une inscription en
 double : la même adresse ne peut pas s'abonner deux fois à une recherche aux

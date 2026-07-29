@@ -22,6 +22,10 @@ function buildCriteria(fields) {
     .split(",")
     .map((kw) => kw.trim().toLowerCase())
     .filter(Boolean);
+  const equipments = String((fields && fields.equipments) || "")
+    .split(",")
+    .map((eq) => eq.trim())
+    .filter(Boolean);
   return {
     extent: String((fields && fields.extent) || "").trim(),
     city: normalizeCity(fields && fields.city),
@@ -30,6 +34,7 @@ function buildCriteria(fields) {
     occupationModes: Array.from(new Set(modes)).sort(),
     prm: Boolean(fields && fields.prm && String(fields.prm).trim()),
     keywords: Array.from(new Set(keywords)).sort(),
+    equipments: Array.from(new Set(equipments)).sort(),
   };
 }
 
@@ -54,7 +59,8 @@ function criteriaMatch(a, b) {
     (a.minArea ?? null) === (b.minArea ?? null) &&
     sameModes(a.occupationModes, b.occupationModes) &&
     Boolean(a.prm) === Boolean(b.prm) &&
-    sameModes(a.keywords, b.keywords)
+    sameModes(a.keywords, b.keywords) &&
+    sameModes(a.equipments, b.equipments)
   );
 }
 
