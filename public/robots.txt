@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://logement-crous-alert.netlify.app/sitemap.xml
