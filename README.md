@@ -36,6 +36,8 @@ Actions — pas besoin de garder un PC allumé.
 
 4. **Éditer `searches.json`** pour ajouter/retirer des recherches (ou passer par une
    Issue GitHub, voir plus bas, si tu préfères ne pas toucher au fichier à la main).
+   Une fois la migration vers le dépôt de données privé effectuée (voir plus bas), ce
+   fichier vit dans ce dépôt privé, pas ici.
    Pour obtenir l'URL d'une recherche : va sur trouverunlogement.lescrous.fr, règle les
    filtres voulus (ville, type de logement, prix...) dans l'interface, puis copie l'URL
    de la barre d'adresse. Champ `emails` obligatoire (liste avec une seule adresse) :
@@ -101,15 +103,15 @@ recherche en ouvrant une Issue :
 À noter : la zone de recherche créée via ce formulaire a une **taille fixe** (environ
 11 km × 10 km) centrée sur la ville. Pour une très grande ville (Paris, Lyon,
 Marseille...), cette zone peut ne pas couvrir toute l'agglomération — le `bounds` de
-l'URL générée peut être élargi à la main dans `searches.json` par la suite si besoin.
+l'URL générée peut être élargi à la main dans `searches.json` par la suite si besoin
+(dans le dépôt de données privé une fois la migration effectuée, voir plus bas).
 
 Un bot prend ensuite le relais automatiquement : il géocode la ville, construit l'URL
-de recherche correspondante, puis crée la recherche (immédiatement, ou en attente de
-confirmation si tu as renseigné un email — voir la section suivante), et commente
-l'issue avec un résumé de ce qui a été créé. Si tout s'est bien passé, l'issue est fermée
-automatiquement. Si quelque chose a coincé (ville introuvable, nom déjà utilisé...), le
-bot commente en expliquant le problème et laisse l'issue ouverte — corrige simplement
-les champs et rouvre une nouvelle issue.
+de recherche correspondante, puis crée la recherche en attente de confirmation email (voir
+la section suivante), et commente l'issue avec un résumé de ce qui a été créé. Si tout
+s'est bien passé, l'issue est fermée automatiquement. Si quelque chose a coincé (ville
+introuvable, nom déjà utilisé...), le bot commente en expliquant le problème et laisse
+l'issue ouverte — corrige simplement les champs et rouvre une nouvelle issue.
 
 À noter : s'il n'y a actuellement aucun logement disponible dans la ville demandée, le
 bot ne peut pas te proposer de vrais noms de résidences ou de types de logement pour
@@ -184,6 +186,10 @@ vivent pas dans ce dépôt public mais dans un dépôt privé dédié, pour que 
 adresses email des inscrits ne soient pas publiées. Les workflows y accèdent via le
 secret `DATA_REPO_PAT`.
 
+La checklist complète pour effectuer cette migration (créer le dépôt privé, poser
+les secrets, déployer, nettoyer l'ancien dépôt public) est dans
+`docs/superpowers/plans/2026-07-28-migration-checklist.md`.
+
 1. Crée un compte Netlify et lie-le à ce dépôt GitHub (Netlify détecte automatiquement
    `netlify.toml` : `public/` comme dossier publié, `netlify/functions/` comme dossier
    de fonctions).
@@ -194,6 +200,13 @@ secret `DATA_REPO_PAT`.
    ajoute :
    - `GITHUB_PAT` : le token créé à l'étape 2
    - `GITHUB_REPOSITORY` : `LZ-Aissam/logement-crous-alert`
+   - `TURNSTILE_SECRET_KEY` : la secret key de ton widget Cloudflare Turnstile (voir
+     la checklist de migration pour la création du widget) — sans elle, toute
+     soumission du formulaire est refusée.
+   - `DATA_REPO_PAT` : le même type de token fine-grained que `GITHUB_PAT`, mais
+     limité au dépôt de données privé, avec la permission **Contents: Read and
+     write** — sans lui, la détection de doublon est silencieusement inactive (elle
+     échoue ouvert, voir plus bas).
 4. Ajoute ces secrets sur le dépôt GitHub (Settings > Secrets and variables > Actions) :
    - `CONFIRMATION_BASE_URL` : l'URL de la page de confirmation sur ton site Netlify,
      ex. `https://ton-site.netlify.app/confirmer.html`
@@ -206,10 +219,10 @@ secret `DATA_REPO_PAT`.
 5. Le formulaire GitHub direct (section ci-dessus) continue de fonctionner en
    parallèle : c'est une alternative, pas un remplacement.
 
-**Limite assumée** : la protection anti-abus (champ honeypot + limite de 5
-requêtes/heure par IP) est faite au mieux, sans garantie forte — suffisante contre le
-spam basique, pas contre un attaquant déterminé. Comme pour le formulaire GitHub actuel,
-il n'y a pas de compte utilisateur ni de tableau de bord pour gérer ses propres
+**Limite assumée** : Cloudflare Turnstile est la vraie protection anti-abus ; le
+honeypot et la limite de 5 requêtes/heure par IP restent en place comme garde-fous
+gratuits supplémentaires, sans garantie forte à eux seuls. Comme pour le formulaire
+GitHub actuel, il n'y a pas de compte utilisateur ni de tableau de bord pour gérer ses propres
 recherches après coup.
 
 **Risque à connaître** : ce formulaire public est aussi un relais d'envoi d'emails
@@ -250,6 +263,7 @@ python check_logement.py
 ## À savoir
 
 Le bot commit et push automatiquement `seen.json` à chaque run (toutes les ~5 minutes)
-dès qu'un changement est détecté. Il est donc normal de voir de temps en temps des
-commits automatiques signés "logement-alert-bot" dans l'historique du dépôt — ce n'est
-pas un problème.
+dès qu'un changement est détecté. Une fois la migration vers le dépôt de données privé
+effectuée (voir plus haut), ces commits automatiques signés "logement-alert-bot"
+apparaissent dans l'historique du dépôt privé, pas dans celui-ci — c'est normal, pas un
+problème.

@@ -1,4 +1,4 @@
-"""Process a GitHub Issue Form submission to add a new search to searches.json."""
+"""Process a GitHub Issue Form submission, staging a new search in pending_searches.json until its email confirms."""
 from __future__ import annotations
 
 import hashlib

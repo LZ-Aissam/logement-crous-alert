@@ -176,6 +176,29 @@ test("rate limit trips after 5 requests from the same IP within the window", asy
   assert.equal(sixth.statusCode, 429);
 });
 
+test("a rate-limited request makes zero outbound calls (no Turnstile, no data-repo read, no GitHub issue)", async (t) => {
+  stubEnv(t);
+  const calls = stubFetch(t);
+
+  const ip = "203.0.113.49";
+  for (let i = 0; i < 5; i++) {
+    const result = await handler(
+      makeEvent(
+        { name: "Brest", city: "Brest", emails: "a@example.com", turnstileToken: "tok" },
+        ip
+      )
+    );
+    assert.equal(result.statusCode, 200);
+  }
+
+  calls.length = 0;
+  const sixth = await handler(
+    makeEvent({ name: "Brest", city: "Brest", emails: "a@example.com", turnstileToken: "tok" }, ip)
+  );
+  assert.equal(sixth.statusCode, 429);
+  assert.equal(calls.length, 0);
+});
+
 test("valid payload includes the 5 new optional sections in the issue body", async (t) => {
   stubEnv(t);
   const originalRepo = process.env.GITHUB_REPOSITORY;
@@ -347,6 +370,34 @@ test("an already-subscribed email with identical criteria returns 409", async (t
   );
 
   assert.equal(result.statusCode, 409);
+  assert.equal(calls.some((c) => String(c.url).includes("api.github.com/repos/o/r/issues")), false);
+});
+
+test("a pending (unconfirmed) duplicate returns 409 with a pending-specific message", async (t) => {
+  stubEnv(t);
+  const { buildCriteria } = require("../_criteria");
+  const criteria = buildCriteria({ city: "Rennes", extent: "1_2_3_4" });
+  const calls = stubFetch(t, {
+    pending: {
+      "Rennes": { search: { criteria }, pending_emails: { abc123: "a@example.com" } },
+    },
+  });
+
+  const result = await handler(
+    makeEvent(
+      {
+        name: "Rennes bis", city: "Rennes", extent: "1_2_3_4",
+        emails: "a@example.com", turnstileToken: "tok",
+      },
+      "203.0.113.48"
+    )
+  );
+
+  assert.equal(result.statusCode, 409);
+  assert.match(
+    JSON.parse(result.body).error,
+    /confirmation est deja en attente/
+  );
   assert.equal(calls.some((c) => String(c.url).includes("api.github.com/repos/o/r/issues")), false);
 });
 

@@ -2,6 +2,7 @@
   "normalize_city_cases": [
     { "input": "  Saint   Denis  ", "expected": "saint denis" },
     { "input": "", "expected": "" },
+    { "input": "   ", "expected": "" },
     { "input": "Brest", "expected": "brest" },
     { "input": "RENNES", "expected": "rennes" }
   ],

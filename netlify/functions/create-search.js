@@ -113,27 +113,35 @@ async function handler(event) {
     };
   }
 
+  let searches = [];
+  let pending = {};
   try {
-    const [searches, pending] = await Promise.all([
+    [searches, pending] = await Promise.all([
       readDataFile("searches.json", []),
       readDataFile("pending_searches.json", {}),
     ]);
-    const duplicate = findDuplicate({
-      searches,
-      pending,
-      email,
-      criteria: buildCriteria(fields),
-    });
-    if (duplicate) {
-      return {
-        statusCode: 409,
-        body: JSON.stringify({ error: "Tu es deja abonne a cette recherche avec cette adresse." }),
-      };
-    }
   } catch (err) {
     // Fail open: a data-repo outage must not block every new subscription.
     // add_search.py re-runs this check and has the final say.
-    console.error("create-search: duplicate check skipped", err);
+    console.error("create-search: duplicate check skipped (data repo unreachable)", err);
+  }
+
+  const duplicate = findDuplicate({
+    searches,
+    pending,
+    email,
+    criteria: buildCriteria(fields),
+  });
+  if (duplicate) {
+    const isPending = Object.prototype.hasOwnProperty.call(pending, duplicate);
+    return {
+      statusCode: 409,
+      body: JSON.stringify({
+        error: isPending
+          ? "Une confirmation est deja en attente pour cette adresse sur cette recherche -- verifie tes emails, y compris les spams."
+          : "Tu es deja abonne a cette recherche avec cette adresse.",
+      }),
+    };
   }
 
   try {

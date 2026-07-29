@@ -1,7 +1,9 @@
 # Checklist de migration
 
-Etapes d'exploitation, a faire dans l'ordre. Le code doit etre deploye avant
-l'etape 5, sinon le robot tourne a vide.
+Etapes d'exploitation, a faire dans l'ordre. A partir de l'etape 4 (deploiement),
+le robot lit les donnees depuis le depot prive : toute recherche non recreee la-bas
+(y compris Brest et Rennes) cesse d'etre surveillee des ce moment, pas seulement
+apres la suppression des anciens fichiers a l'etape 5.
 
 - [ ] 1. Creer le depot prive `LZ-Aissam/logement-crous-alert-data` avec trois
       fichiers : `searches.json` contenant `[]`, `pending_searches.json` et
@@ -25,5 +27,6 @@ l'etape 5, sinon le robot tourne a vide.
       prive avec son bloc `criteria`, resoumettre la meme chose et verifier le
       refus en 409, puis supprimer l'entree de test.
 
-Les recherches `Brest` et `Rennes` cessent d'etre surveillees a l'etape 5. La
-personne abonnee a `Brest` cesse de recevoir ses alertes.
+Les recherches `Brest` et `Rennes` cessent d'etre surveillees des l'etape 4
+(deploiement), pas seulement a l'etape 5. La personne abonnee a `Brest` cesse de
+recevoir ses alertes a partir de ce moment.
