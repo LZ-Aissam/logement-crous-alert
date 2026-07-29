@@ -32,15 +32,24 @@ apres la suppression des anciens fichiers a l'etape 5.
       exposees. Fait le 2026-07-29 (fichiers supprimes + historique purge et
       force-push, `ce1f278` -> `a309e6a` apres filter-repo).
 - [x] 6. Supprimer le secret `ALERT_EMAIL` du depot public. Fait le 2026-07-29.
-- [ ] 7. Verifier de bout en bout : soumettre une recherche de test via le
+- [x] 7. Verifier de bout en bout : soumettre une recherche de test via le
       formulaire, confirmer l'email, verifier que l'entree apparait dans le depot
       prive avec son bloc `criteria`, resoumettre la meme chose et verifier le
-      refus en 409, puis supprimer l'entree de test. **Pas encore fait** : le
-      widget Turnstile bloquait la soumission (voir etape 3) ; l'utilisateur a
-      confirme le 2026-07-29 que ca fonctionne maintenant apres la correction du
-      hostname, mais le cycle complet (soumission -> confirmation email ->
-      verification dans le depot prive -> test du 409 -> suppression) n'a pas
-      encore ete execute.
+      refus en 409, puis supprimer l'entree de test. Fait le 2026-07-29.
+      **Deuxieme piege rencontre** (apres celui de l'etape 3) : le premier essai
+      a echoue avec `remote: Write access to repository not granted. fatal:
+      unable to access '.../logement-crous-alert-data/': ... 403` au moment du
+      `git push` dans le workflow `add-search.yml` -- le PAT n'avait que la
+      lecture, pas l'ecriture (confirme par un test direct sur l'API Contents :
+      lecture OK en 200, ecriture 403 "Resource not accessible by personal
+      access token"). Corrige en editant la permission "Contents" du token
+      existant sur `github.com/settings/personal-access-tokens` vers "Read and
+      write" (le token n'a pas change de valeur). Les 6 issues de test ratees
+      (#12-#17) ont ete fermees. Le second essai a reussi de bout en bout :
+      recherche "Aissam"/Brest creee, email confirme, entree presente dans
+      `searches.json` avec son bloc `criteria`, resoumission identique refusee
+      en 409 ("Tu es deja abonne a cette recherche avec cette adresse."),
+      entree de test supprimee du depot prive apres verification.
 
 Les recherches `Brest` et `Rennes` cessent d'etre surveillees des l'etape 4
 (deploiement), pas seulement a l'etape 5. La personne abonnee a `Brest` cesse de
