@@ -18,6 +18,7 @@ test("buildCriteria mirrors the Python shape", () => {
       minArea: "18",
       occupationMode: "house_sharing,alone,alone",
       prm: "true",
+      keywords: "Kergoat, studio",
     }),
     {
       extent: "-1.75_48.16_-1.61_48.05",
@@ -26,6 +27,7 @@ test("buildCriteria mirrors the Python shape", () => {
       minArea: 18,
       occupationModes: ["alone", "house_sharing"],
       prm: true,
+      keywords: ["kergoat", "studio"],
     }
   );
 });
@@ -37,6 +39,12 @@ test("buildCriteria maps empty optional fields to null, not zero", () => {
   assert.equal(criteria.minArea, null);
   assert.deepEqual(criteria.occupationModes, []);
   assert.equal(criteria.prm, false);
+  assert.deepEqual(criteria.keywords, []);
+});
+
+test("buildCriteria dedupes keywords case-insensitively", () => {
+  const criteria = buildCriteria({ city: "Brest", keywords: "Kergoat, kergoat,  Studio " });
+  assert.deepEqual(criteria.keywords, ["kergoat", "studio"]);
 });
 
 test("criteriaMatch prefers extent over city label", () => {
@@ -53,6 +61,18 @@ test("criteriaMatch rejects a differing filter", () => {
   const a = buildCriteria({ city: "Brest", extent: "1_2_3_4", maxPrice: "400" });
   const b = buildCriteria({ city: "Brest", extent: "1_2_3_4", maxPrice: "500" });
   assert.equal(criteriaMatch(a, b), false);
+});
+
+test("criteriaMatch rejects differing keywords", () => {
+  const a = buildCriteria({ city: "Brest", extent: "1_2_3_4", keywords: "Kergoat" });
+  const b = buildCriteria({ city: "Brest", extent: "1_2_3_4", keywords: "Bellevue" });
+  assert.equal(criteriaMatch(a, b), false);
+});
+
+test("criteriaMatch ignores keyword order and case", () => {
+  const a = buildCriteria({ city: "Brest", extent: "1_2_3_4", keywords: "Kergoat, Studio" });
+  const b = buildCriteria({ city: "Brest", extent: "1_2_3_4", keywords: "studio, kergoat" });
+  assert.equal(criteriaMatch(a, b), true);
 });
 
 test("criteriaMatch never matches a missing criteria block", () => {

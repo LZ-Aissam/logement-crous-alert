@@ -66,6 +66,24 @@
       "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": true },
       "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
       "expected": false
+    },
+    {
+      "description": "keywords same set, different order -> match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "keywords": ["kergoat", "studio"] },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "keywords": ["studio", "kergoat"] },
+      "expected": true
+    },
+    {
+      "description": "differing keywords -> no match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "keywords": ["kergoat"] },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "keywords": ["bellevue"] },
+      "expected": false
+    },
+    {
+      "description": "keywords present vs absent -> no match",
+      "a": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false, "keywords": ["kergoat"] },
+      "b": { "extent": "1_2_3_4", "city": "brest", "maxPrice": null, "minArea": null, "occupationModes": [], "prm": false },
+      "expected": false
     }
   ]
 }

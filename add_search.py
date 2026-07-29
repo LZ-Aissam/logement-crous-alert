@@ -315,6 +315,7 @@ def main() -> int:
         min_area=min_area,
         occupation_modes=occupation_modes,
         prm=prm,
+        keywords=keywords,
     )
 
     submitted = emails[0].strip().lower()

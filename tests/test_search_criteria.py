@@ -14,6 +14,7 @@ def test_build_criteria_shape():
         min_area=18,
         occupation_modes=["house_sharing", "alone", "alone"],
         prm=True,
+        keywords=["Kergoat", "studio"],
     )
     assert criteria == {
         "extent": "-1.75_48.16_-1.61_48.05",
@@ -22,7 +23,25 @@ def test_build_criteria_shape():
         "minArea": 18,
         "occupationModes": ["alone", "house_sharing"],
         "prm": True,
+        "keywords": ["kergoat", "studio"],
     }
+
+
+def test_build_criteria_keywords_default_to_empty_list():
+    criteria = build_criteria(
+        city="Brest", extent=None, max_price=None, min_area=None,
+        occupation_modes=[], prm=False,
+    )
+    assert criteria["keywords"] == []
+
+
+def test_build_criteria_dedupes_keywords_case_insensitively():
+    criteria = build_criteria(
+        city="Brest", extent=None, max_price=None, min_area=None,
+        occupation_modes=[], prm=False,
+        keywords=["Kergoat", "kergoat", " Studio "],
+    )
+    assert criteria["keywords"] == ["kergoat", "studio"]
 
 
 def test_build_criteria_defaults_are_null_not_zero():
@@ -113,3 +132,27 @@ def test_criteria_match_zero_min_area():
     c = build_criteria(city="Brest", extent="1_2_3_4", max_price=None,
                        min_area=None, occupation_modes=[], prm=False)
     assert criteria_match(a, c) is False
+
+
+def test_criteria_match_rejects_differing_keywords():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=["house_sharing"], prm=False, keywords=["Kergoat"])
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=["house_sharing"], prm=False, keywords=["Bellevue"])
+    assert criteria_match(a, b) is False
+
+
+def test_criteria_match_ignores_keyword_order_and_case():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=[], prm=False, keywords=["Kergoat", "Studio"])
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=[], prm=False, keywords=["studio", "kergoat"])
+    assert criteria_match(a, b) is True
+
+
+def test_criteria_match_keywords_present_vs_absent_is_not_a_match():
+    a = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=["house_sharing"], prm=False, keywords=["Kergoat"])
+    b = build_criteria(city="Brest", extent="1_2_3_4", max_price=None, min_area=None,
+                       occupation_modes=["house_sharing"], prm=False)
+    assert criteria_match(a, b) is False

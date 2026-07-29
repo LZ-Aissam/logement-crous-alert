@@ -25,6 +25,7 @@ def build_criteria(
     min_area: int | None,
     occupation_modes: list[str],
     prm: bool,
+    keywords: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "extent": (extent or "").strip(),
@@ -33,6 +34,7 @@ def build_criteria(
         "minArea": min_area,
         "occupationModes": sorted(set(occupation_modes)),
         "prm": bool(prm),
+        "keywords": sorted({kw.strip().lower() for kw in (keywords or []) if kw and kw.strip()}),
     }
 
 
@@ -51,4 +53,5 @@ def criteria_match(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
         and a.get("minArea") == b.get("minArea")
         and sorted(a.get("occupationModes") or []) == sorted(b.get("occupationModes") or [])
         and bool(a.get("prm")) == bool(b.get("prm"))
+        and sorted(a.get("keywords") or []) == sorted(b.get("keywords") or [])
     )

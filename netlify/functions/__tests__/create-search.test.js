@@ -420,6 +420,44 @@ test("the same criteria with a different email is accepted", async (t) => {
   assert.equal(result.statusCode, 200);
 });
 
+test("the same criteria with different keywords is accepted (not a duplicate)", async (t) => {
+  stubEnv(t);
+  const { buildCriteria } = require("../_criteria");
+  const criteria = buildCriteria({ city: "Rennes", extent: "1_2_3_4", keywords: "Kergoat" });
+  stubFetch(t, { searches: [{ name: "Rennes", emails: ["a@example.com"], criteria }] });
+
+  const result = await handler(
+    makeEvent(
+      {
+        name: "Rennes bis", city: "Rennes", extent: "1_2_3_4", keywords: "Bellevue",
+        emails: "a@example.com", turnstileToken: "tok",
+      },
+      "203.0.113.60"
+    )
+  );
+
+  assert.equal(result.statusCode, 200);
+});
+
+test("the same criteria with the same keywords in a different order/case returns 409", async (t) => {
+  stubEnv(t);
+  const { buildCriteria } = require("../_criteria");
+  const criteria = buildCriteria({ city: "Rennes", extent: "1_2_3_4", keywords: "Kergoat, Studio" });
+  stubFetch(t, { searches: [{ name: "Rennes", emails: ["a@example.com"], criteria }] });
+
+  const result = await handler(
+    makeEvent(
+      {
+        name: "Rennes bis", city: "Rennes", extent: "1_2_3_4", keywords: "studio, kergoat",
+        emails: "a@example.com", turnstileToken: "tok",
+      },
+      "203.0.113.61"
+    )
+  );
+
+  assert.equal(result.statusCode, 409);
+});
+
 test("an unreadable data repo lets the submission through (fail-open)", async (t) => {
   stubEnv(t);
   stubFetch(t, { dataFails: true });
