@@ -85,6 +85,11 @@ footer identiques recopiés à la main dans les 5 fichiers.
      fois l'URL Netlify connue. Sans eux, les liens de confirmation et de
      désinscription pointent vers une Issue GitHub pré-remplie au lieu d'une page
      web — rien ne casse si Netlify n'est jamais déployé.
+   - `MAINTAINER_EMAIL` (optionnel) : ton adresse email personnelle. Si une
+     recherche échoue 3 vérifications consécutives (~15 minutes, ex. le site du
+     CROUS a changé de structure), un email d'alerte y est envoyé — sinon
+     l'échec ne serait visible que dans l'onglet Actions. Un second email
+     confirme le rétablissement une fois la recherche de nouveau fonctionnelle.
 
 5. **Créer le widget Cloudflare Turnstile** sur dash.cloudflare.com pour le domaine du
    site, et remplacer la clé de test `1x00000000000000000000AA` dans

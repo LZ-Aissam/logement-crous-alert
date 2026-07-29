@@ -876,6 +876,7 @@ def test_data_dir_defaults_to_current_directory(monkeypatch):
     try:
         assert reloaded.SEARCHES_PATH == Path("searches.json")
         assert reloaded.SEEN_PATH == Path("seen.json")
+        assert reloaded.FAILURES_PATH == Path("failures.json")
     finally:
         monkeypatch.delenv("DATA_DIR", raising=False)
         importlib.reload(check_logement)
@@ -891,6 +892,118 @@ def test_data_dir_env_var_relocates_data_files(monkeypatch):
     try:
         assert reloaded.SEARCHES_PATH == Path("data/searches.json")
         assert reloaded.SEEN_PATH == Path("data/seen.json")
+        assert reloaded.FAILURES_PATH == Path("data/failures.json")
     finally:
         monkeypatch.delenv("DATA_DIR", raising=False)
         importlib.reload(check_logement)
+
+
+def test_load_failures_returns_empty_dict_when_missing(tmp_path):
+    missing = tmp_path / "failures.json"
+    assert mod.load_failures(missing) == {}
+
+
+def test_save_then_load_failures_round_trips(tmp_path):
+    path = tmp_path / "failures.json"
+    mod.save_failures({"Brest": 2}, path)
+    assert mod.load_failures(path) == {"Brest": 2}
+
+
+def _setup_single_search(tmp_path, monkeypatch, maintainer_email=None):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(
+        json.dumps([{"name": "Brest", "url": "https://example.com/brest", "emails": ["b@example.com"]}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "me@example.com")
+    if maintainer_email:
+        monkeypatch.setenv("MAINTAINER_EMAIL", maintainer_email)
+    else:
+        monkeypatch.delenv("MAINTAINER_EMAIL", raising=False)
+
+
+def test_main_sends_health_alert_when_failure_threshold_reached(tmp_path, monkeypatch):
+    _setup_single_search(tmp_path, monkeypatch, maintainer_email="admin@example.com")
+    monkeypatch.setattr(mod, "fetch_html", lambda url: (_ for _ in ()).throw(mod.SearchFetchError("site changed")))
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, *a, **k: sent.append((subject, body, to_addrs)),
+    )
+
+    assert mod.main() == 1
+    assert sent == []  # below threshold on run 1
+    assert mod.main() == 1
+    assert sent == []  # below threshold on run 2
+    assert mod.main() == 1
+    assert len(sent) == 1  # threshold (3) reached on run 3
+    subject, body, to_addrs = sent[0]
+    assert to_addrs == ["admin@example.com"]
+    assert "Brest" in body
+    assert "site changed" in body
+
+    # Further consecutive failures do not re-send the alert.
+    assert mod.main() == 1
+    assert len(sent) == 1
+
+
+def test_main_no_health_alert_without_maintainer_email(tmp_path, monkeypatch):
+    _setup_single_search(tmp_path, monkeypatch, maintainer_email=None)
+    monkeypatch.setattr(mod, "fetch_html", lambda url: (_ for _ in ()).throw(mod.SearchFetchError("boom")))
+    monkeypatch.setattr(mod, "send_email", lambda *a, **k: pytest.fail("should not send email"))
+
+    for _ in range(5):
+        mod.main()  # must not raise even past the threshold
+
+
+def test_main_resets_failure_count_on_success_before_threshold(tmp_path, monkeypatch):
+    _setup_single_search(tmp_path, monkeypatch, maintainer_email="admin@example.com")
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, *a, **k: sent.append((subject, body, to_addrs)),
+    )
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: (_ for _ in ()).throw(mod.SearchFetchError("boom")))
+    mod.main()
+    mod.main()
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(mod, "parse_search_results", lambda html: {"items": []})
+    mod.main()
+
+    failures = mod.load_failures()
+    assert failures == {}
+    assert sent == []  # threshold never reached, no alert
+
+
+def test_main_sends_recovery_notice_after_alert(tmp_path, monkeypatch):
+    _setup_single_search(tmp_path, monkeypatch, maintainer_email="admin@example.com")
+    sent = []
+    monkeypatch.setattr(
+        mod,
+        "send_email",
+        lambda subject, body, to_addrs, *a, **k: sent.append((subject, body, to_addrs)),
+    )
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: (_ for _ in ()).throw(mod.SearchFetchError("boom")))
+    mod.main()
+    mod.main()
+    mod.main()
+    assert len(sent) == 1  # health alert
+
+    monkeypatch.setattr(mod, "fetch_html", lambda url: "<fake html>")
+    monkeypatch.setattr(mod, "parse_search_results", lambda html: {"items": []})
+    mod.main()
+
+    assert len(sent) == 2
+    subject, body, to_addrs = sent[1]
+    assert "retabli" in subject.lower()
+    assert "Brest" in body
+    assert to_addrs == ["admin@example.com"]
+    assert mod.load_failures() == {}

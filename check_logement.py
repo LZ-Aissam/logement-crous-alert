@@ -22,6 +22,11 @@ USER_AGENT = "Mozilla/5.0 (compatible; logement-alert-bot/1.0)"
 DATA_DIR = Path(os.environ.get("DATA_DIR", "."))
 SEARCHES_PATH = DATA_DIR / "searches.json"
 SEEN_PATH = DATA_DIR / "seen.json"
+FAILURES_PATH = DATA_DIR / "failures.json"
+
+# Number of consecutive check failures for a search before a health alert email is
+# sent to MAINTAINER_EMAIL -- avoids alerting on a single transient network blip.
+FAILURE_ALERT_THRESHOLD = 3
 
 
 class SearchFetchError(Exception):
@@ -88,6 +93,78 @@ def save_seen(seen: dict[str, list[str]], path: Path = SEEN_PATH) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(seen, f, indent=2, sort_keys=True, ensure_ascii=False)
         f.write("\n")
+
+
+def load_failures(path: Path = FAILURES_PATH) -> dict[str, int]:
+    if not path.exists():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        print(
+            f"[ERROR] corrupt JSON in {path}, falling back to empty state: {exc}",
+            file=sys.stderr,
+        )
+        return {}
+    if not isinstance(data, dict):
+        print(
+            f"[ERROR] unexpected JSON shape in {path} (expected an object), "
+            "falling back to empty state",
+            file=sys.stderr,
+        )
+        return {}
+    return data
+
+
+def save_failures(failures: dict[str, int], path: Path = FAILURES_PATH) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(failures, f, indent=2, sort_keys=True, ensure_ascii=False)
+        f.write("\n")
+
+
+def _send_health_alert(
+    to_email: str,
+    failing: list[tuple[str, str]],
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    from_email: str,
+) -> None:
+    lines = [
+        f"{len(failing)} recherche(s) en echec depuis {FAILURE_ALERT_THRESHOLD} "
+        "verifications consecutives :",
+        "",
+    ]
+    for name, error in failing:
+        lines.append(f"- {name} : {error}")
+    lines.append("")
+    lines.append("Verifie l'onglet Actions du depot pour plus de details.")
+    subject = f"[Logement][ALERTE] {len(failing)} recherche(s) en echec"
+    try:
+        send_email(subject, "\n".join(lines), [to_email], smtp_host, smtp_port, smtp_user, smtp_password, from_email)
+    except Exception as exc:
+        print(f"[ERROR] failed to send health alert: {exc}", file=sys.stderr)
+
+
+def _send_recovery_notice(
+    to_email: str,
+    recovered: list[str],
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    from_email: str,
+) -> None:
+    lines = [f"{len(recovered)} recherche(s) retablie(s) :", ""]
+    for name in recovered:
+        lines.append(f"- {name}")
+    subject = f"[Logement] {len(recovered)} recherche(s) retablie(s)"
+    try:
+        send_email(subject, "\n".join(lines), [to_email], smtp_host, smtp_port, smtp_user, smtp_password, from_email)
+    except Exception as exc:
+        print(f"[ERROR] failed to send recovery notice: {exc}", file=sys.stderr)
 
 
 def compute_unsubscribe_token(search_name: str, email: str) -> str | None:
@@ -250,6 +327,10 @@ def main() -> int:
         return 1
 
     seen = load_seen()
+    failures = load_failures()
+    maintainer_email = os.environ.get("MAINTAINER_EMAIL")
+    newly_failing: list[tuple[str, str]] = []
+    newly_recovered: list[str] = []
     any_success = False
 
     for search in searches:
@@ -274,9 +355,16 @@ def main() -> int:
                 subject = f"[Logement] {len(new_items)} nouveau(x) pour {name}"
         except (SearchFetchError, KeyError, TypeError, AttributeError) as exc:
             print(f"[ERROR] {name}: {exc}", file=sys.stderr)
+            failures[name] = failures.get(name, 0) + 1
+            if failures[name] == FAILURE_ALERT_THRESHOLD:
+                newly_failing.append((name, str(exc)))
             continue
 
         any_success = True
+
+        if failures.get(name, 0) >= FAILURE_ALERT_THRESHOLD:
+            newly_recovered.append(name)
+        failures.pop(name, None)
 
         if new_items:
             sent_count = 0
@@ -303,6 +391,14 @@ def main() -> int:
 
     if any_success:
         save_seen(seen)
+    save_failures(failures)
+
+    if maintainer_email:
+        if newly_failing:
+            _send_health_alert(maintainer_email, newly_failing, smtp_host, smtp_port, smtp_user, smtp_password, from_email)
+        if newly_recovered:
+            _send_recovery_notice(maintainer_email, newly_recovered, smtp_host, smtp_port, smtp_user, smtp_password, from_email)
+
     return 0 if any_success else 1
 
 
