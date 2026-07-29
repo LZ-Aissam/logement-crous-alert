@@ -143,6 +143,12 @@ Cette étape existe pour une seule raison : empêcher que quelqu'un renseigne l'
 email d'un inconnu et lui fasse recevoir, sans son accord, des emails automatiques
 depuis l'adresse d'expéditeur configurée pour ce dépôt.
 
+Le lien de confirmation expire au bout de **10 minutes**. Passé ce délai, l'entrée en
+attente est automatiquement supprimée de `pending_searches.json` (à la prochaine
+création de recherche ou tentative de confirmation qui la croise) et ne bloque plus une
+resoumission avec la même adresse et les mêmes critères — sans ça, une confirmation
+jamais faite bloquait la recherche indéfiniment.
+
 ### Se désinscrire d'une recherche
 
 Chaque email d'alerte contient, en pied de message, un lien de désinscription

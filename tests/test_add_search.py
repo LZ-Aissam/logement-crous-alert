@@ -1130,6 +1130,124 @@ def test_same_email_and_same_criteria_is_refused_when_pending(monkeypatch, tmp_p
     assert mod.main() == 1
 
 
+def test_expired_pending_duplicate_no_longer_blocks(monkeypatch, tmp_path):
+    # Same fixture as test_same_email_and_same_criteria_is_refused_when_pending, but the
+    # pending record is 15 minutes old (past the 10-minute expiry window) -- it must no
+    # longer block a fresh submission with the same email/criteria.
+    from datetime import datetime, timedelta, timezone
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    old_created_at = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Deja en attente": {
+                    "search": {
+                        "name": "Deja en attente",
+                        "url": "https://example.test/search",
+                        "criteria": {
+                            "extent": "-1.75_48.16_-1.61_48.05",
+                            "city": "rennes",
+                            "maxPrice": None,
+                            "minArea": None,
+                            "occupationModes": [],
+                            "prm": False,
+                        },
+                    },
+                    "pending_emails": {"somehash": "a@example.com"},
+                    "created_at": old_created_at,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nAutre nom\n\n"
+        "### Ville\n\nRennes\n\n"
+        "### Email de notification\n\na@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-1.75_48.16_-1.61_48.05\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    assert mod.main() == 0
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Deja en attente" not in pending, "expired entry should have been pruned"
+
+
+def test_fresh_pending_duplicate_still_blocks(monkeypatch, tmp_path):
+    # Same fixture, but created_at is now (within the window) -- must still block, same
+    # as the no-timestamp legacy case already covered elsewhere.
+    from datetime import datetime, timezone
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    fresh_created_at = datetime.now(timezone.utc).isoformat()
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Deja en attente": {
+                    "search": {
+                        "name": "Deja en attente",
+                        "url": "https://example.test/search",
+                        "criteria": {
+                            "extent": "-1.75_48.16_-1.61_48.05",
+                            "city": "rennes",
+                            "maxPrice": None,
+                            "minArea": None,
+                            "occupationModes": [],
+                            "prm": False,
+                        },
+                    },
+                    "pending_emails": {"somehash": "a@example.com"},
+                    "created_at": fresh_created_at,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    body = (
+        "### Nom de la recherche\n\nAutre nom\n\n"
+        "### Ville\n\nRennes\n\n"
+        "### Email de notification\n\na@example.com\n\n"
+        "### Zone geographique precise (rempli automatiquement) - optionnel\n\n"
+        "-1.75_48.16_-1.61_48.05\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    assert mod.main() == 1
+
+
+def test_main_stamps_new_pending_entry_with_created_at(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        "### Email de notification\n\na@example.com\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    _stub_network_and_smtp(monkeypatch)
+
+    before = datetime.now(timezone.utc)
+    assert mod.main() == 0
+    after = datetime.now(timezone.utc)
+
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    created_at = datetime.fromisoformat(pending["Agen"]["created_at"])
+    assert before <= created_at <= after
+
+
+def test_build_confirmation_email_body_mentions_expiry_window():
+    body = mod.build_confirmation_email_body("Brest", "https://example.test/confirmer?code=abc")
+    assert "10 minutes" in body
+
+
 def test_pending_searches_path_derives_from_check_logement_data_dir(monkeypatch):
     monkeypatch.setenv("DATA_DIR", "data")
     import importlib

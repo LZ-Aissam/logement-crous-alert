@@ -119,3 +119,21 @@ test("findDuplicate ignores entries without a criteria block", () => {
   const searches = [{ name: "Legacy", emails: ["a@example.com"] }];
   assert.equal(findDuplicate({ searches, pending: {}, email: "a@example.com", criteria }), null);
 });
+
+test("findDuplicate ignores an expired pending entry", () => {
+  const criteria = buildCriteria({ city: "Rennes", extent: "1_2_3_4" });
+  const createdAt = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const pending = {
+    Rennes: { search: { criteria }, pending_emails: { abc: "a@example.com" }, created_at: createdAt },
+  };
+  assert.equal(findDuplicate({ searches: [], pending, email: "a@example.com", criteria }), null);
+});
+
+test("findDuplicate still finds a pending entry within the expiry window", () => {
+  const criteria = buildCriteria({ city: "Rennes", extent: "1_2_3_4" });
+  const createdAt = new Date().toISOString();
+  const pending = {
+    Rennes: { search: { criteria }, pending_emails: { abc: "a@example.com" }, created_at: createdAt },
+  };
+  assert.equal(findDuplicate({ searches: [], pending, email: "a@example.com", criteria }), "Rennes");
+});

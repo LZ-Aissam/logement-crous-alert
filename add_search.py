@@ -8,6 +8,7 @@ import re
 import secrets
 import sys
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,25 @@ EQUIPMENT_LABELS = {
     "micro-onde": "Micro-onde",
     "wc": "WC",
 }
+
+# How long an unconfirmed search stays pending before it stops blocking a fresh
+# submission with the same email/criteria and gets pruned from pending_searches.json.
+PENDING_EXPIRY_MINUTES = 10
+
+
+def is_pending_expired(record: dict[str, Any]) -> bool:
+    """A record with no created_at (written before this field existed) is never
+    treated as expired -- avoids silently dropping pre-existing pending data."""
+    created_at = record.get("created_at")
+    if not created_at:
+        return False
+    try:
+        created = datetime.fromisoformat(created_at)
+    except ValueError:
+        return False
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - created > timedelta(minutes=PENDING_EXPIRY_MINUTES)
 
 
 class GeocodeError(Exception):
@@ -191,8 +211,10 @@ def build_confirmation_email_body(search_name: str, confirmation_url: str) -> st
     return (
         "Quelqu'un a demande a recevoir des alertes de logement CROUS a cette adresse "
         f"email, pour la recherche {search_name!r}.\n\n"
-        "Si c'est bien toi, confirme en cliquant sur ce lien :\n"
+        f"Si c'est bien toi, confirme en cliquant sur ce lien dans les {PENDING_EXPIRY_MINUTES} "
+        "minutes :\n"
         f"{confirmation_url}\n\n"
+        "Passe ce delai, le lien expire et il faudra recommencer.\n\n"
         "Si tu n'es pas a l'origine de cette demande, ignore simplement cet email -- "
         "rien ne sera active sans ta confirmation."
     )
@@ -282,6 +304,13 @@ def main() -> int:
             return 1
     else:
         pending = {}
+
+    expired_names = [n for n, record in pending.items() if is_pending_expired(record)]
+    if expired_names:
+        for n in expired_names:
+            del pending[n]
+        save_pending_searches(pending)
+
     existing_names = {s["name"].strip().lower() for s in searches} | {
         n.strip().lower() for n in pending
     }
@@ -438,7 +467,11 @@ def main() -> int:
         print(f"ERROR: aucun email de confirmation n'a pu etre envoye pour {name!r}")
         return 1
 
-    pending[name] = {"search": entry, "pending_emails": pending_emails}
+    pending[name] = {
+        "search": entry,
+        "pending_emails": pending_emails,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
     save_pending_searches(pending)
     lines.insert(
         0,

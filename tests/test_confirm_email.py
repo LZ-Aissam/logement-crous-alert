@@ -143,6 +143,64 @@ def test_main_rejects_unknown_token(tmp_path, monkeypatch):
     assert exit_code == 1
 
 
+def test_main_rejects_expired_pending_code(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    old_created_at = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen"},
+                    "pending_emails": {hash_token("tok123"): "a@example.com"},
+                    "created_at": old_created_at,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok123\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert searches == []
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert "Agen" not in pending, "expired entry should have been pruned"
+
+
+def test_main_confirms_within_expiry_window(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    fresh_created_at = datetime.now(timezone.utc).isoformat()
+    (tmp_path / "pending_searches.json").write_text(
+        json.dumps(
+            {
+                "Agen": {
+                    "search": {"name": "Agen", "url": "https://example.com/agen"},
+                    "pending_emails": {hash_token("tok123"): "a@example.com"},
+                    "created_at": fresh_created_at,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\ntok123\n")
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    searches = json.loads((tmp_path / "searches.json").read_text(encoding="utf-8"))
+    assert searches == [
+        {"name": "Agen", "url": "https://example.com/agen", "emails": ["a@example.com"]}
+    ]
+
+
 def test_main_requires_code(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ISSUE_BODY", "### Code de confirmation\n\n_No response_\n")

@@ -64,6 +64,18 @@ function criteriaMatch(a, b) {
   );
 }
 
+// Mirrors add_search.py's PENDING_EXPIRY_MINUTES / is_pending_expired -- a record with
+// no created_at (written before this field existed) is never treated as expired.
+const PENDING_EXPIRY_MS = 10 * 60 * 1000;
+
+function isPendingExpired(record) {
+  const createdAt = record && record.created_at;
+  if (!createdAt) return false;
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return false;
+  return Date.now() - created.getTime() > PENDING_EXPIRY_MS;
+}
+
 function findDuplicate({ searches, pending, email, criteria }) {
   const wanted = String(email || "").trim().toLowerCase();
   if (!wanted) return null;
@@ -75,6 +87,7 @@ function findDuplicate({ searches, pending, email, criteria }) {
   }
 
   for (const [name, record] of Object.entries(pending || {})) {
+    if (isPendingExpired(record)) continue;
     const search = (record && record.search) || {};
     if (!criteriaMatch(search.criteria, criteria)) continue;
     const emails = Object.values((record && record.pending_emails) || {});
@@ -84,4 +97,4 @@ function findDuplicate({ searches, pending, email, criteria }) {
   return null;
 }
 
-module.exports = { normalizeCity, buildCriteria, criteriaMatch, findDuplicate };
+module.exports = { normalizeCity, buildCriteria, criteriaMatch, findDuplicate, isPendingExpired };

@@ -7,8 +7,10 @@ import sys
 
 import check_logement as clog
 from add_search import (
+    PENDING_EXPIRY_MINUTES,
     PENDING_SEARCHES_PATH,
     hash_token,
+    is_pending_expired,
     load_pending_searches,
     parse_issue_form_body,
     save_pending_searches,
@@ -40,6 +42,15 @@ def main() -> int:
         pending_emails = record.get("pending_emails", {})
         if code_hash not in pending_emails:
             continue
+
+        if is_pending_expired(record):
+            del pending[search_name]
+            save_pending_searches(pending)
+            print(
+                f"ERROR: ce lien de confirmation a expire ({PENDING_EXPIRY_MINUTES} minutes), "
+                "resoumets une nouvelle demande."
+            )
+            return 1
 
         email = pending_emails.pop(code_hash)
 
