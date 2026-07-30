@@ -132,6 +132,14 @@ h1, h2, h3, .display-1, .display-2, .display-3, .display-4 {
 
 .honeypot { position: absolute; left: -9999px; top: -9999px; }
 
+a:focus-visible,
+button:focus-visible,
+.form-check-input:focus-visible,
+.accordion-button:focus-visible {
+  outline: 3px solid var(--front-greenwater);
+  outline-offset: 2px;
+}
+
 /* Entrance + scroll-reveal animation.
    Progressive enhancement: elements are visible by default. JS opts an
    element into the hidden-until-scrolled-into-view treatment by adding

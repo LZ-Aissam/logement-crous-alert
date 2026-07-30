@@ -22,16 +22,18 @@
 </head>
 <body style="background: var(--color-grey); min-height: 100vh;">
 
+<a href="#main-content" class="visually-hidden-focusable">Aller au contenu principal</a>
+
 <nav class="navbar navbar-expand py-3">
   <div class="container">
     <a class="navbar-brand fw-bold d-flex align-items-center gap-2 mb-0" href="index.html">
-      <i class="bi bi-house-heart-fill"></i>
+      <i class="bi bi-house-heart-fill" aria-hidden="true"></i>
       Alerte Logement CROUS
     </a>
   </div>
 </nav>
 
-<main class="container py-5">
+<main id="main-content" class="container py-5">
   <div class="row justify-content-center">
     <div class="col-lg-6">
       <div class="card border-0 shadow-lg p-4 p-md-5 reveal is-visible">
@@ -40,9 +42,9 @@
         <p id="intro" class="text-secondary">Clique sur le bouton ci-dessous pour confirmer que tu acceptes de recevoir des alertes logement à cette adresse.</p>
 
         <div class="d-flex flex-wrap gap-3 small text-secondary mt-2">
-          <span><i class="bi bi-shield-check"></i> Email jamais partagé</span>
-          <span><i class="bi bi-lightning-charge"></i> Activation immédiate</span>
-          <span><i class="bi bi-x-circle"></i> Désinscription possible à tout moment</span>
+          <span><i class="bi bi-shield-check" aria-hidden="true"></i> Email jamais partagé</span>
+          <span><i class="bi bi-lightning-charge" aria-hidden="true"></i> Activation immédiate</span>
+          <span><i class="bi bi-x-circle" aria-hidden="true"></i> Désinscription possible à tout moment</span>
         </div>
 
         <div class="honeypot" aria-hidden="true">
