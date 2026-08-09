@@ -1,3 +1,9 @@
 [build]
   publish = "public"
   functions = "netlify/functions"
+
+[[redirects]]
+  from = "https://logement-crous-alert.netlify.app/*"
+  to = "https://alerte-logement-crous.fr/:splat"
+  status = 301
+  force = true
