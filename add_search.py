@@ -32,6 +32,11 @@ FIELD_NAME = "Nom de la recherche"
 FIELD_CITY = "Ville"
 FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel"
 FIELD_EMAILS = "Email de notification"
+# Set by the Netlify function instead of FIELD_EMAILS: points to a one-time payload
+# in the private data repo's inbox/, keeping the raw address out of this public issue.
+# A manually-submitted GitHub Issue has no way to set this and falls back to
+# FIELD_EMAILS directly, unavoidably public in that path.
+FIELD_EMAIL_REF = "Référence email (dépôt privé)"
 FIELD_EXTENT = "Zone geographique precise (rempli automatiquement) - optionnel"
 FIELD_MAX_PRICE = "Prix maximum - optionnel"
 FIELD_MIN_AREA = "Surface minimum en m2 - optionnel"
@@ -249,6 +254,7 @@ def main() -> int:
     city = fields.get(FIELD_CITY)
     keywords_raw = fields.get(FIELD_KEYWORDS)
     emails_raw = fields.get(FIELD_EMAILS)
+    email_ref = fields.get(FIELD_EMAIL_REF)
     extent_raw = fields.get(FIELD_EXTENT)
     max_price_raw = fields.get(FIELD_MAX_PRICE)
     min_area_raw = fields.get(FIELD_MIN_AREA)
@@ -354,15 +360,23 @@ def main() -> int:
         equipments=equipments,
     )
     keywords = _split_csv(keywords_raw)
-    emails = _split_csv(emails_raw)
 
-    seen_lower = set()
-    deduped_emails = []
-    for e in emails:
-        if e.lower() not in seen_lower:
-            seen_lower.add(e.lower())
-            deduped_emails.append(e)
-    emails = deduped_emails
+    if email_ref:
+        resolved = clog.read_inbox_email(email_ref)
+        if not resolved:
+            print(f"ERROR: reference email introuvable ou expiree : {email_ref!r}")
+            return 1
+        emails = [resolved]
+    else:
+        emails = _split_csv(emails_raw)
+
+        seen_lower = set()
+        deduped_emails = []
+        for e in emails:
+            if e.lower() not in seen_lower:
+                seen_lower.add(e.lower())
+                deduped_emails.append(e)
+        emails = deduped_emails
 
     if not emails:
         print("ERROR: l'email de notification est obligatoire")
@@ -374,7 +388,10 @@ def main() -> int:
 
     invalid_emails = [e for e in emails if not EMAIL_RE.match(e)]
     if invalid_emails:
-        print(f"ERROR: adresse(s) email invalide(s) : {', '.join(invalid_emails)}")
+        print(
+            "ERROR: adresse(s) email invalide(s) : "
+            f"{', '.join(clog.mask_email(e) for e in invalid_emails)}"
+        )
         return 1
 
     criteria = build_criteria(
@@ -475,7 +492,10 @@ def main() -> int:
                 html_body=confirmation_html,
             )
         except Exception as exc:
-            print(f"ERROR: echec d'envoi de l'email de confirmation a {email!r}: {exc}")
+            print(
+                f"ERROR: echec d'envoi de l'email de confirmation a "
+                f"{clog.mask_email(email)}: {exc}"
+            )
             failed_emails.append(email)
             continue
         pending_emails[hash_token(token)] = email
@@ -495,13 +515,15 @@ def main() -> int:
         f"OK: recherche {name!r} creee EN ATTENTE de confirmation email pour {city!r}.",
     )
     lines.append(
-        f"Email(s) en attente de confirmation : {', '.join(pending_emails.values())}. Un "
+        "Email(s) en attente de confirmation : "
+        f"{', '.join(clog.mask_email(e) for e in pending_emails.values())}. Un "
         "email de confirmation a ete envoye a chaque adresse. La recherche ne sera "
         "active qu'une fois qu'au moins un email aura confirme."
     )
     if failed_emails:
         lines.append(
-            f"AVERTISSEMENT: echec d'envoi pour : {', '.join(failed_emails)} "
+            "AVERTISSEMENT: echec d'envoi pour : "
+            f"{', '.join(clog.mask_email(e) for e in failed_emails)} "
             "(resoumets une nouvelle issue pour ces adresses si besoin)"
         )
 

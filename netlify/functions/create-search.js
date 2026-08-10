@@ -1,8 +1,10 @@
 "use strict";
 
+const crypto = require("node:crypto");
+
 const { isHoneypotFilled, createRateLimiter, createGithubIssue, clientIp } = require("./_github");
 const { verifyTurnstile } = require("./_turnstile");
-const { readDataFile } = require("./_data-repo");
+const { readDataFile, writeDataFile } = require("./_data-repo");
 const { buildCriteria, findDuplicate } = require("./_criteria");
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -15,6 +17,10 @@ const FIELD_NAME = "Nom de la recherche";
 const FIELD_CITY = "Ville";
 const FIELD_KEYWORDS = "Mots-clés (résidence, type de logement...) - optionnel";
 const FIELD_EMAILS = "Email de notification";
+// Replaces FIELD_EMAILS in the public issue body: points to a one-time payload
+// staged in the private data repo's inbox/, keeping the raw address off this public
+// GitHub issue. add_search.py resolves it back to the real address server-side.
+const FIELD_EMAIL_REF = "Référence email (dépôt privé)";
 const FIELD_EXTENT = "Zone geographique precise (rempli automatiquement) - optionnel";
 const FIELD_MAX_PRICE = "Prix maximum - optionnel";
 const FIELD_MIN_AREA = "Surface minimum en m2 - optionnel";
@@ -27,12 +33,12 @@ function section(label, value) {
   return `### ${label}\n\n${trimmed || "_No response_"}\n`;
 }
 
-function buildIssueBody(fields) {
+function buildIssueBody(fields, ref) {
   return [
     section(FIELD_NAME, fields.name),
     section(FIELD_CITY, fields.city),
     section(FIELD_KEYWORDS, fields.keywords),
-    section(FIELD_EMAILS, fields.emails),
+    section(FIELD_EMAIL_REF, ref),
     section(FIELD_EXTENT, fields.extent),
     section(FIELD_MAX_PRICE, fields.maxPrice),
     section(FIELD_MIN_AREA, fields.minArea),
@@ -146,12 +152,27 @@ async function handler(event) {
     };
   }
 
+  const ref = crypto.randomBytes(16).toString("hex");
+  try {
+    await writeDataFile(
+      `inbox/${ref}.json`,
+      JSON.stringify({ email }),
+      `chore: stage new-search inbox ${ref}`
+    );
+  } catch (err) {
+    console.error("create-search: failed to stage email in the data repo", err);
+    return {
+      statusCode: 502,
+      body: JSON.stringify({ error: "Une erreur est survenue, réessaie dans quelques minutes." }),
+    };
+  }
+
   try {
     const issue = await createGithubIssue({
       repo: process.env.GITHUB_REPOSITORY,
       token: process.env.GITHUB_PAT,
       title: `[Nouvelle recherche] ${fields.name.trim()}`,
-      body: buildIssueBody(fields),
+      body: buildIssueBody(fields, ref),
       labels: ["new-search"],
     });
     return { statusCode: 200, body: JSON.stringify({ issueUrl: issue.url }) };

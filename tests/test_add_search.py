@@ -428,6 +428,7 @@ def test_js_field_labels_match_python_constants():
     assert f'const FIELD_CITY = "{mod.FIELD_CITY}";' in js_source
     assert f'const FIELD_KEYWORDS = "{mod.FIELD_KEYWORDS}";' in js_source
     assert f'const FIELD_EMAILS = "{mod.FIELD_EMAILS}";' in js_source
+    assert f'const FIELD_EMAIL_REF = "{mod.FIELD_EMAIL_REF}";' in js_source
     assert f'const FIELD_EXTENT = "{mod.FIELD_EXTENT}";' in js_source
     assert f'const FIELD_MAX_PRICE = "{mod.FIELD_MAX_PRICE}";' in js_source
     assert f'const FIELD_MIN_AREA = "{mod.FIELD_MIN_AREA}";' in js_source
@@ -466,7 +467,7 @@ def test_js_unsubscribe_labels_match_python_constants():
 
     js_source = Path("netlify/functions/unsubscribe.js").read_text(encoding="utf-8")
     assert f'section("{unsubscribe.FIELD_SEARCH}", fields.search)' in js_source
-    assert f'section("{unsubscribe.FIELD_EMAIL}", fields.email)' in js_source
+    assert f'section("{unsubscribe.FIELD_EMAIL_REF}", ref)' in js_source
     assert f'section("{unsubscribe.FIELD_TOKEN}", fields.token)' in js_source
 
 
@@ -688,7 +689,8 @@ def test_main_reports_error_when_the_confirmation_email_fails_to_send(tmp_path, 
     assert exit_code == 1
     assert not (tmp_path / "pending_searches.json").exists()
     out = capsys.readouterr().out
-    assert "a@example.com" in out
+    assert "a***@example.com" in out
+    assert "a@example.com" not in out
 
 
 def test_main_aborts_on_invalid_existing_pending_searches_json(tmp_path, monkeypatch):
@@ -1022,6 +1024,47 @@ def test_missing_email_is_rejected(monkeypatch, tmp_path):
     monkeypatch.setenv("ISSUE_BODY", body)
     monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
     assert mod.main() == 1
+
+
+def test_main_uses_email_ref_when_present(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    ref = "c" * 32
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / f"{ref}.json").write_text(json.dumps({"email": "a@example.com"}), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        f"### {mod.FIELD_EMAIL_REF}\n\n{ref}\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+    _stub_network_and_smtp(monkeypatch)
+
+    exit_code = mod.main()
+
+    assert exit_code == 0
+    assert not (inbox / f"{ref}.json").exists()
+    pending = json.loads((tmp_path / "pending_searches.json").read_text(encoding="utf-8"))
+    assert list(pending["Agen"]["pending_emails"].values()) == ["a@example.com"]
+
+
+def test_main_rejects_missing_email_ref(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "searches.json").write_text(json.dumps([]), encoding="utf-8")
+    body = (
+        "### Nom de la recherche\n\nAgen\n\n"
+        "### Ville\n\nAgen 47000\n\n"
+        f"### {mod.FIELD_EMAIL_REF}\n\n{'d' * 32}\n"
+    )
+    monkeypatch.setenv("ISSUE_BODY", body)
+    monkeypatch.setattr(mod, "geocode_city", lambda city: (0.631041, 44.202304))
+
+    exit_code = mod.main()
+
+    assert exit_code == 1
+    assert json.loads((tmp_path / "searches.json").read_text(encoding="utf-8")) == []
 
 
 def test_more_than_one_email_is_rejected(monkeypatch, tmp_path):

@@ -40,10 +40,40 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "."))
 SEARCHES_PATH = DATA_DIR / "searches.json"
 SEEN_PATH = DATA_DIR / "seen.json"
 FAILURES_PATH = DATA_DIR / "failures.json"
+INBOX_DIR = DATA_DIR / "inbox"
 
 # Number of consecutive check failures for a search before a health alert email is
 # sent to MAINTAINER_EMAIL -- avoids alerting on a single transient network blip.
 FAILURE_ALERT_THRESHOLD = 3
+
+_INBOX_REF_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def mask_email(email: str) -> str:
+    """Redacts an email for safe inclusion in output that ends up in a public GitHub
+    issue comment or Actions log (e.g. "a***@example.com")."""
+    local, _, domain = email.partition("@")
+    if not domain:
+        return "***"
+    return f"{local[:1] or '*'}***@{domain}"
+
+
+def read_inbox_email(ref: str | None) -> str | None:
+    """Reads and deletes a one-time email payload staged by a Netlify function in the
+    private data repo's inbox/ -- keeps the raw address out of the public issue body
+    that triggers this workflow. Returns None if ref is missing/malformed or the file
+    doesn't exist/isn't valid JSON."""
+    if not ref or not _INBOX_REF_RE.match(ref.strip()):
+        return None
+    path = INBOX_DIR / f"{ref.strip()}.json"
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    email = data.get("email") if isinstance(data, dict) else None
+    path.unlink(missing_ok=True)
+    return email if isinstance(email, str) and email else None
 
 
 class SearchFetchError(Exception):
@@ -543,7 +573,10 @@ def main() -> int:
                         html_body=html,
                     )
                 except Exception as exc:
-                    print(f"[ERROR] {name}: failed to send email to {recipient}: {exc}", file=sys.stderr)
+                    print(
+                        f"[ERROR] {name}: failed to send email to {mask_email(recipient)}: {exc}",
+                        file=sys.stderr,
+                    )
                     continue
                 sent_count += 1
             if sent_count == 0:

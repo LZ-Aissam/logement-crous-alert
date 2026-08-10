@@ -128,7 +128,17 @@ test("valid payload creates a GitHub issue matching the Issue Form contract", as
     sentBody.body,
     /### Mots-clés \(résidence, type de logement\.\.\.\) - optionnel\n\n_No response_\n/
   );
-  assert.match(sentBody.body, /### Email de notification\n\na@example\.com\n/);
+  // The raw email never reaches the public issue body -- only an opaque reference
+  // pointing at a one-time payload staged in the private data repo.
+  assert.doesNotMatch(sentBody.body, /a@example\.com/);
+  assert.match(sentBody.body, /### Référence email \(dépôt privé\)\n\n[0-9a-f]{32}\n/);
+  const inboxCall = calls.find((c) => String(c.url).includes("/contents/inbox/"));
+  assert.ok(inboxCall, "expected a write to the private data repo's inbox/");
+  assert.equal(inboxCall.options.method, "PUT");
+  const inboxContent = JSON.parse(
+    Buffer.from(JSON.parse(inboxCall.options.body).content, "base64").toString("utf-8")
+  );
+  assert.equal(inboxContent.email, "a@example.com");
 });
 
 test("GitHub API failure returns 502", async (t) => {
@@ -154,6 +164,38 @@ test("GitHub API failure returns 502", async (t) => {
     )
   );
   assert.equal(result.statusCode, 502);
+});
+
+test("a failed inbox write returns 502 and never creates the public issue", async (t) => {
+  stubEnv(t);
+  const calls = [];
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (String(url).includes("challenges.cloudflare.com")) {
+      return { ok: true, json: async () => ({ success: true }) };
+    }
+    if (String(url).includes("/contents/searches.json") || String(url).includes("/contents/pending_searches.json")) {
+      return { ok: false, status: 404, text: async () => "not found" };
+    }
+    if (String(url).includes("/contents/inbox/")) {
+      return { ok: false, status: 500, text: async () => "boom" };
+    }
+    return { ok: true, json: async () => ({ html_url: "unused" }) };
+  };
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const result = await handler(
+    makeEvent(
+      { name: "Brest", city: "Brest", emails: "a@example.com", turnstileToken: "tok" },
+      "203.0.113.50"
+    )
+  );
+
+  assert.equal(result.statusCode, 502);
+  assert.equal(calls.some((c) => String(c.url).includes("api.github.com/repos") && String(c.url).includes("/issues")), false);
 });
 
 test("rate limit trips after 5 requests from the same IP within the window", async (t) => {

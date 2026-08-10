@@ -24,4 +24,30 @@ async function readDataFile(path, fallback) {
   return JSON.parse(await response.text());
 }
 
-module.exports = { readDataFile };
+async function writeDataFile(path, content, message) {
+  const token = process.env.DATA_REPO_PAT;
+  if (!token) {
+    throw new Error("DATA_REPO_PAT is not configured");
+  }
+  const repo = process.env.DATA_REPO || DEFAULT_DATA_REPO;
+  const response = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: JSON.stringify({
+      message,
+      content: Buffer.from(content, "utf-8").toString("base64"),
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GitHub API error ${response.status} writing ${path}: ${text}`);
+  }
+}
+
+module.exports = { readDataFile, writeDataFile };

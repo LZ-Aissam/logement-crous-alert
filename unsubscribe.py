@@ -11,6 +11,11 @@ from add_search import parse_issue_form_body
 
 FIELD_SEARCH = "Nom de la recherche"
 FIELD_EMAIL = "Email"
+# Set by the Netlify function instead of FIELD_EMAIL: points to a one-time payload in
+# the private data repo's inbox/, keeping the raw address out of this public issue. A
+# manually-submitted GitHub Issue has no way to set this and falls back to FIELD_EMAIL
+# directly, unavoidably public in that path.
+FIELD_EMAIL_REF = "Référence email (dépôt privé)"
 FIELD_TOKEN = "Jeton"
 
 
@@ -18,7 +23,8 @@ def main() -> int:
     issue_body = os.environ.get("ISSUE_BODY", "")
     fields = parse_issue_form_body(issue_body)
     search_name = fields.get(FIELD_SEARCH)
-    email = fields.get(FIELD_EMAIL)
+    email_ref = fields.get(FIELD_EMAIL_REF)
+    email = clog.read_inbox_email(email_ref) if email_ref else fields.get(FIELD_EMAIL)
     token = fields.get(FIELD_TOKEN)
 
     if not search_name or not email or not token:
@@ -62,7 +68,7 @@ def main() -> int:
         searches = [s for s in searches if s is not target]
         clog.save_searches(searches)
         print(
-            f"OK: {email!r} desinscrit de {search_name!r}. "
+            f"OK: {clog.mask_email(email)} desinscrit de {search_name!r}. "
             "C'etait le dernier destinataire, la recherche a ete supprimee."
         )
         return 0
@@ -71,21 +77,21 @@ def main() -> int:
     remaining = [e for e in emails if e.strip().lower() != email.strip().lower()]
 
     if len(remaining) == len(emails):
-        print(f"OK: {email!r} n'etait pas destinataire de {search_name!r}, rien a faire")
+        print(f"OK: {clog.mask_email(email)} n'etait pas destinataire de {search_name!r}, rien a faire")
         return 0
 
     if remaining:
         target["emails"] = remaining
         clog.save_searches(searches)
         print(
-            f"OK: {email!r} desinscrit de {search_name!r}. "
+            f"OK: {clog.mask_email(email)} desinscrit de {search_name!r}. "
             "La recherche continue pour les autres destinataires."
         )
     else:
         searches = [s for s in searches if s is not target]
         clog.save_searches(searches)
         print(
-            f"OK: {email!r} desinscrit de {search_name!r}. "
+            f"OK: {clog.mask_email(email)} desinscrit de {search_name!r}. "
             "C'etait le dernier destinataire, la recherche a ete supprimee."
         )
 

@@ -1301,3 +1301,46 @@ def test_main_health_and_recovery_emails_include_html_body(tmp_path, monkeypatch
         assert html_body is not None
         assert "<html" in html_body.lower()
         assert "Brest" in html_body
+
+
+def test_mask_email_keeps_first_letter_and_domain():
+    assert mod.mask_email("aissam@example.com") == "a***@example.com"
+
+
+def test_mask_email_handles_no_at_sign():
+    assert mod.mask_email("not-an-email") == "***"
+
+
+def test_read_inbox_email_reads_and_deletes_the_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ref = "a" * 32
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / f"{ref}.json").write_text(json.dumps({"email": "a@example.com"}), encoding="utf-8")
+
+    email = mod.read_inbox_email(ref)
+
+    assert email == "a@example.com"
+    assert not (inbox / f"{ref}.json").exists()
+
+
+def test_read_inbox_email_returns_none_when_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert mod.read_inbox_email("a" * 32) is None
+
+
+def test_read_inbox_email_returns_none_for_malformed_ref(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert mod.read_inbox_email("../../etc/passwd") is None
+    assert mod.read_inbox_email("not-hex") is None
+    assert mod.read_inbox_email(None) is None
+
+
+def test_read_inbox_email_returns_none_for_corrupt_json(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ref = "b" * 32
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / f"{ref}.json").write_text("not json", encoding="utf-8")
+
+    assert mod.read_inbox_email(ref) is None

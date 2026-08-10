@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { readDataFile } = require("../_data-repo");
+const { readDataFile, writeDataFile } = require("../_data-repo");
 
 function withEnv(t, values) {
   const saved = {};
@@ -63,4 +63,45 @@ test("throws on a server error", async (t) => {
 test("throws when the token is not configured", async (t) => {
   withEnv(t, { DATA_REPO_PAT: undefined });
   await assert.rejects(() => readDataFile("searches.json", []), /DATA_REPO_PAT/);
+});
+
+test("writes a base64-encoded file via the Contents API", async (t) => {
+  withEnv(t, { DATA_REPO_PAT: "tok", DATA_REPO: "o/data" });
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 201, text: async () => "{}" };
+  };
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  await writeDataFile("inbox/abc.json", '{"email":"a@example.com"}', "chore: stage inbox abc");
+
+  assert.equal(calls[0].url, "https://api.github.com/repos/o/data/contents/inbox/abc.json");
+  assert.equal(calls[0].options.method, "PUT");
+  assert.equal(calls[0].options.headers.Authorization, "Bearer tok");
+  const sentBody = JSON.parse(calls[0].options.body);
+  assert.equal(sentBody.message, "chore: stage inbox abc");
+  assert.equal(
+    Buffer.from(sentBody.content, "base64").toString("utf-8"),
+    '{"email":"a@example.com"}'
+  );
+});
+
+test("writeDataFile throws on a server error", async (t) => {
+  withEnv(t, { DATA_REPO_PAT: "tok", DATA_REPO: "o/data" });
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 500, text: async () => "boom" });
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  await assert.rejects(() => writeDataFile("inbox/abc.json", "{}", "msg"), /500/);
+});
+
+test("writeDataFile throws when the token is not configured", async (t) => {
+  withEnv(t, { DATA_REPO_PAT: undefined });
+  await assert.rejects(() => writeDataFile("inbox/abc.json", "{}", "msg"), /DATA_REPO_PAT/);
 });

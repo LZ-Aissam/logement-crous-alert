@@ -1,6 +1,9 @@
 "use strict";
 
+const crypto = require("node:crypto");
+
 const { isHoneypotFilled, createRateLimiter, createGithubIssue, clientIp } = require("./_github");
+const { writeDataFile } = require("./_data-repo");
 
 const MAX_REQUESTS_PER_WINDOW = 5;
 const WINDOW_MS = 60 * 60 * 1000;
@@ -11,10 +14,10 @@ function section(label, value) {
   return `### ${label}\n\n${trimmed || "_No response_"}\n`;
 }
 
-function buildIssueBody(fields) {
+function buildIssueBody(fields, ref) {
   return [
     section("Nom de la recherche", fields.search),
-    section("Email", fields.email),
+    section("Référence email (dépôt privé)", ref),
     section("Jeton", fields.token),
   ].join("\n");
 }
@@ -53,12 +56,27 @@ async function handler(event) {
     };
   }
 
+  const ref = crypto.randomBytes(16).toString("hex");
+  try {
+    await writeDataFile(
+      `inbox/${ref}.json`,
+      JSON.stringify({ email: fields.email }),
+      `chore: stage unsubscribe inbox ${ref}`
+    );
+  } catch (err) {
+    console.error("unsubscribe: failed to stage email in the data repo", err);
+    return {
+      statusCode: 502,
+      body: JSON.stringify({ error: "Une erreur est survenue, réessaie dans quelques minutes." }),
+    };
+  }
+
   try {
     const issue = await createGithubIssue({
       repo: process.env.GITHUB_REPOSITORY,
       token: process.env.GITHUB_PAT,
       title: "[Désinscription]",
-      body: buildIssueBody(fields),
+      body: buildIssueBody(fields, ref),
       labels: ["unsubscribe"],
     });
     return { statusCode: 200, body: JSON.stringify({ issueUrl: issue.url }) };
