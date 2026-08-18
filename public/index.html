@@ -389,6 +389,30 @@
   </div>
 </section>
 
+<div class="modal fade" id="precise-search-modal" tabindex="-1" aria-labelledby="precise-search-modal-label" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="precise-search-modal-label">Es-tu sûr·e ?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <p>T'as coché pas mal de critères, et je te le dis en ami galère à galère : plus tu filtres, plus tu
+        réduis le nombre de logements qui peuvent matcher, donc moins d'alertes et plus de temps avant d'en
+        recevoir une. Sur un marché aussi tendu que le CROUS, chaque filtre en trop peut littéralement te coûter
+        des semaines.</p>
+        <p class="mb-0">Le vrai move, c'est de ne garder que la ville et de laisser le reste vide : tu recevras
+        plus d'alertes et tu pourras toujours refuser un logement qui ne te plaît pas. Rappelle-toi, l'objectif
+        c'est d'avoir un toit où dormir, pas l'appart parfait haha.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Modifier ma recherche</button>
+        <button type="button" id="confirm-precise-search" class="btn btn-primary">Continuer quand même</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <section class="py-5">
   <div class="container">
     <div class="row justify-content-center">
@@ -703,6 +727,26 @@
 
   const form = document.getElementById("search-form");
   const result = document.getElementById("result");
+  const preciseSearchModalEl = document.getElementById("precise-search-modal");
+  const preciseSearchModal = new bootstrap.Modal(preciseSearchModalEl);
+  let bypassPreciseCheck = false;
+
+  function isSearchTooPrecise() {
+    return Boolean(
+      form.keywords.value.trim() ||
+      form.maxPrice.value.trim() ||
+      form.minArea.value.trim() ||
+      form.querySelector('input[name="occupationMode"]:checked') ||
+      form.prm.checked ||
+      form.querySelector('input[name="equipments"]:checked')
+    );
+  }
+
+  document.getElementById("confirm-precise-search").addEventListener("click", () => {
+    bypassPreciseCheck = true;
+    preciseSearchModal.hide();
+    form.requestSubmit();
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -710,6 +754,11 @@
       form.reportValidity();
       return;
     }
+    if (!bypassPreciseCheck && isSearchTooPrecise()) {
+      preciseSearchModal.show();
+      return;
+    }
+    bypassPreciseCheck = false;
     result.className = "alert d-none mt-4 mb-0";
 
     const payload = {
