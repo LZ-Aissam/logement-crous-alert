@@ -32,5 +32,8 @@ python -m http.server 8765 --directory public   # prévisualiser le site
 - Gabarit HTML : celui de `confirmer.html` (`<!doctype html>`, `lang="fr"`,
   même `<head>`, badges `.stamp` / `.stamp-teal`).
 - Secrets uniquement en variables d'env. La site key Turnstile dans `index.html`
-  est encore la clé de test.
+  est la vraie clé (`0x4AAAAAAEAvnluSg9sdeEtR`, widget "Logement Crous Alerte"
+  dans le dashboard Cloudflare) — pas une clé de test. Si le domaine du site
+  change, penser à ajouter le nouveau hostname aux domaines autorisés du
+  widget côté Cloudflare, sinon Turnstile échoue avec l'erreur 110200.
 - Specs et plans : `docs/superpowers/{specs,plans}/`.
