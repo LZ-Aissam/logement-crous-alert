@@ -8,6 +8,7 @@ import os
 import re
 import smtplib
 import sys
+import time
 import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -18,6 +19,8 @@ import requests
 
 SEARCH_DATA_URL = "/api/fr/search/47"
 FETCH_TIMEOUT = 20
+FETCH_RETRIES = 3
+FETCH_RETRY_DELAY = 5
 USER_AGENT = "Mozilla/5.0 (compatible; logement-alert-bot/1.0)"
 
 # HTML email styling -- matches the site's real CROUS Rennes palette
@@ -81,17 +84,23 @@ class SearchFetchError(Exception):
 
 
 def fetch_html(url: str) -> str:
-    try:
-        response = requests.get(
-            url, headers={"User-Agent": USER_AGENT}, timeout=FETCH_TIMEOUT
-        )
-    except requests.RequestException as exc:
-        raise SearchFetchError(f"network error fetching {url}: {exc}") from exc
-    if response.status_code != 200:
-        raise SearchFetchError(
-            f"unexpected status {response.status_code} fetching {url}"
-        )
-    return response.text
+    last_error: SearchFetchError | None = None
+    for attempt in range(1, FETCH_RETRIES + 1):
+        try:
+            response = requests.get(
+                url, headers={"User-Agent": USER_AGENT}, timeout=FETCH_TIMEOUT
+            )
+        except requests.RequestException as exc:
+            last_error = SearchFetchError(f"network error fetching {url}: {exc}")
+        else:
+            if response.status_code == 200:
+                return response.text
+            last_error = SearchFetchError(
+                f"unexpected status {response.status_code} fetching {url}"
+            )
+        if attempt < FETCH_RETRIES:
+            time.sleep(FETCH_RETRY_DELAY)
+    raise last_error
 
 
 _SCRIPT_RE = re.compile(

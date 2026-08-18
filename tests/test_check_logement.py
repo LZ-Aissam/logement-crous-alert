@@ -24,6 +24,7 @@ def test_fetch_html_returns_text_on_200(monkeypatch):
 
 def test_fetch_html_raises_on_non_200(monkeypatch):
     monkeypatch.setattr(mod.requests, "get", lambda *a, **k: _FakeResponse(500, ""))
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
     with pytest.raises(mod.SearchFetchError):
         mod.fetch_html("https://example.com/search")
 
@@ -33,8 +34,38 @@ def test_fetch_html_raises_on_network_error(monkeypatch):
         raise requests.ConnectionError("boom")
 
     monkeypatch.setattr(mod.requests, "get", fake_get)
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
     with pytest.raises(mod.SearchFetchError):
         mod.fetch_html("https://example.com/search")
+
+
+def test_fetch_html_retries_on_500_then_succeeds(monkeypatch):
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append(url)
+        if len(calls) < 2:
+            return _FakeResponse(500, "")
+        return _FakeResponse(200, "<html>ok</html>")
+
+    monkeypatch.setattr(mod.requests, "get", fake_get)
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
+    assert mod.fetch_html("https://example.com/search") == "<html>ok</html>"
+    assert len(calls) == 2
+
+
+def test_fetch_html_raises_after_exhausting_retries(monkeypatch):
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append(url)
+        return _FakeResponse(500, "")
+
+    monkeypatch.setattr(mod.requests, "get", fake_get)
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
+    with pytest.raises(mod.SearchFetchError):
+        mod.fetch_html("https://example.com/search")
+    assert len(calls) == mod.FETCH_RETRIES
 
 
 def _make_fixture_html(total, items):
